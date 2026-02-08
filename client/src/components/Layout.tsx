@@ -1,11 +1,12 @@
 import { Link, useLocation } from "wouter";
-import { 
-  LayoutDashboard, 
-  Users, 
-  CreditCard, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Users,
+  CreditCard,
+  LogOut,
   ShoppingBag,
-  Store
+  Store,
+  Settings
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -17,9 +18,12 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { toast } = useToast();
-  
+  const userRole = localStorage.getItem("userRole");
+
   const handleLogout = () => {
     localStorage.removeItem("shopOwner");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userId");
     window.location.href = "/login";
   };
 
@@ -28,6 +32,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/sales", label: "Sales", icon: ShoppingBag },
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/borrowings", label: "Udhaar", icon: CreditCard },
+    ...(userRole === "OWNER" ? [{ href: "/payment-settings", label: "Payment Settings", icon: Settings }] : []),
   ];
 
   return (

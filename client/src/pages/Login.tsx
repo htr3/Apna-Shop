@@ -1,38 +1,51 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Store, ArrowRight, Loader2 } from "lucide-react";
+import { Store, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { useI18n } from "@/i18n/I18nContext";
 
 export default function Login() {
   const [_, setLocation] = useLocation();
   const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const { toast } = useToast();
+  const { t } = useI18n();
 
   const loginMutation = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async ({ username, password }: { username: string; password: string }) => {
       const res = await fetch(api.auth.login.path, {
         method: api.auth.login.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: name }),
+        body: JSON.stringify({ username, password }),
       });
-      if (!res.ok) throw new Error("Login failed");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Login failed");
+      }
       return res.json();
     },
     onSuccess: (data) => {
       localStorage.setItem("shopOwner", data.username);
+      localStorage.setItem("userRole", data.role);
+      localStorage.setItem("userId", data.userId);
+      if (rememberMe) {
+        localStorage.setItem("rememberMe", "true");
+      }
       setLocation("/");
       toast({
         title: "Welcome back!",
         description: `Logged in as ${data.username}`,
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: "Could not log in. Please try again.",
+        title: "Login Failed",
+        description: error.message,
         variant: "destructive",
       });
     }
@@ -40,8 +53,8 @@ export default function Login() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim()) return;
-    loginMutation.mutate(username);
+    if (!username.trim() || !password.trim()) return;
+    loginMutation.mutate({ username: username.trim(), password });
   };
 
   return (
@@ -57,24 +70,64 @@ export default function Login() {
           <div className="bg-primary/10 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 text-primary rotate-3 hover:rotate-6 transition-transform duration-300">
             <Store className="h-10 w-10" />
           </div>
-          <h1 className="text-3xl font-display font-bold text-slate-900 mb-2">ShopKeeper</h1>
-          <p className="text-muted-foreground">Manage your sales, customers, and udhaar in one place.</p>
+          <h1 className="text-3xl font-display font-bold text-slate-900 mb-2">{t("login.title")}</h1>
+          <p className="text-muted-foreground">{t("login.subtitle")}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <label htmlFor="username" className="text-sm font-medium text-slate-700 ml-1">
-              Shop Owner Name
+              {t("login.username")}
             </label>
             <input
               id="username"
               type="text"
-              placeholder="e.g. Rahul Sharma"
+              placeholder={t("login.usernamePlaceholder")}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all duration-200"
               autoFocus
+              required
+              aria-describedby="username-error"
             />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="password" className="text-sm font-medium text-slate-700 ml-1">
+              {t("login.password")}
+            </label>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder={t("login.passwordPlaceholder")}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-5 py-4 pr-12 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all duration-200"
+                required
+                aria-describedby="password-error"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <label className="flex items-center space-x-2 text-sm text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="rounded border-slate-300 text-primary focus:ring-primary/20"
+              />
+              <span>{t("login.rememberMe")}</span>
+            </label>
           </div>
 
           <button
@@ -96,9 +149,24 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="text-center text-xs text-muted-foreground mt-8">
-          Simple, secure, and made for small businesses.
-        </p>
+        <div className="text-center mt-8">
+          <p className="text-sm text-muted-foreground">
+            Don't have an account?{" "}
+            <button
+              onClick={() => setLocation("/signup")}
+              className="text-primary hover:underline font-medium"
+            >
+              Sign up
+            </button>
+          </p>
+        </div>
+
+        <div className="text-center text-xs text-muted-foreground mt-8 space-y-2">
+          <p>Simple, secure, and made for small businesses.</p>
+          <p className="sr-only" id="login-button-description">
+            Click to log in to your ShopKeeper dashboard
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useSales, useCustomers, useCreateSale } from "@/hooks/use-shop";
-import { 
-  Plus, 
-  Search, 
+import {
+  Plus,
+  Search,
   ShoppingBag,
   CreditCard,
   Banknote,
   Globe,
-  Loader2
+  Loader2,
+  X
 } from "lucide-react";
 import {
   Dialog,
@@ -91,7 +92,9 @@ export default function Sales() {
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Amount</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Amount Paid</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Amount Pending</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Total</th>
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Method</th>
                 </tr>
               </thead>
@@ -100,6 +103,12 @@ export default function Sales() {
                   <tr key={sale.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 text-sm text-slate-500">
                       {format(new Date(sale.date || ""), "MMM dd, yyyy • hh:mm a")}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="font-bold text-green-600">₹{Number(sale.paidAmount || 0).toLocaleString()}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="font-bold text-orange-600">₹{Number(sale.pendingAmount || 0).toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="font-bold text-slate-900">₹{Number(sale.amount).toLocaleString()}</span>
@@ -126,20 +135,49 @@ export default function Sales() {
 function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
   const { toast } = useToast();
   const createSale = useCreateSale();
-  
+  const { data: customers } = useCustomers();
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [paidAmount, setPaidAmount] = useState<string>("0");
+  const [pendingAmount, setPendingAmount] = useState<string>("0");
+
   const form = useForm<InsertSale>({
     resolver: zodResolver(insertSaleSchema),
     defaultValues: {
       amount: "0",
+      paidAmount: "0",
+      pendingAmount: "0",
       paymentMethod: "CASH",
       date: new Date(),
+      customerId: undefined,
     }
   });
 
+  const filteredCustomers = customers?.filter(c =>
+    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    c.phone.includes(customerSearch)
+  );
+
+  const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
+  const totalAmount = (Number(paidAmount) + Number(pendingAmount)).toFixed(2);
+
   const onSubmit = (data: InsertSale) => {
-    createSale.mutate(data, {
+    const submitData = {
+      ...data,
+      amount: totalAmount,
+      paidAmount,
+      pendingAmount,
+      customerId: selectedCustomerId || undefined,
+    };
+    createSale.mutate(submitData, {
       onSuccess: () => {
         toast({ title: "Success", description: "Sale recorded successfully" });
+        setSelectedCustomerId(null);
+        setCustomerSearch("");
+        setPaidAmount("0");
+        setPendingAmount("0");
+        form.reset();
         onSuccess();
       },
       onError: (err) => {
@@ -151,35 +189,118 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-slate-700">Amount (₹)</label>
-        <input
-          type="number"
-          {...form.register("amount")}
-          placeholder="0.00"
-          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-        />
-        {form.formState.errors.amount && (
-          <p className="text-red-500 text-xs">{form.formState.errors.amount.message}</p>
-        )}
+        <label className="text-sm font-medium text-slate-700">Customer (Optional)</label>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search by name or phone..."
+            value={customerSearch}
+            onChange={(e) => {
+              setCustomerSearch(e.target.value);
+              setShowCustomerDropdown(true);
+            }}
+            onFocus={() => setShowCustomerDropdown(true)}
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+          />
+
+          {selectedCustomer && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCustomerId(null);
+                setCustomerSearch("");
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+
+          {showCustomerDropdown && customerSearch && (
+            <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-slate-200 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
+              {filteredCustomers?.length === 0 ? (
+                <div className="p-3 text-sm text-slate-500 text-center">No customers found</div>
+              ) : (
+                filteredCustomers?.map((customer) => (
+                  <button
+                    key={customer.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCustomerId(customer.id);
+                      setCustomerSearch(customer.name);
+                      setShowCustomerDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors"
+                  >
+                    <div className="font-medium text-slate-900">{customer.name}</div>
+                    <div className="text-xs text-slate-500">{customer.phone}</div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
+          {selectedCustomer && !showCustomerDropdown && (
+            <div className="absolute inset-0 px-4 py-2.5 flex items-center justify-between pointer-events-none">
+              <div>
+                <div className="font-medium text-slate-900 text-sm">{selectedCustomer.name}</div>
+                <div className="text-xs text-slate-500">{selectedCustomer.phone}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">Amount Paid (₹)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={paidAmount}
+            onChange={(e) => setPaidAmount(e.target.value)}
+            placeholder="0.00"
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">Amount Pending (₹)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={pendingAmount}
+            onChange={(e) => setPendingAmount(e.target.value)}
+            placeholder="0.00"
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+          />
+        </div>
+      </div>
+
+      <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+        <div className="text-center">
+          <div className="text-xs text-slate-500 mb-1">Total Amount</div>
+          <div className="text-2xl font-bold text-slate-900">₹{Number(totalAmount).toLocaleString()}</div>
+        </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-slate-700">Payment Method</label>
+        <label className="text-sm font-medium text-slate-700">Payment Method (for paid amount)</label>
         <div className="grid grid-cols-3 gap-2">
           {["CASH", "ONLINE", "CREDIT"].map((method) => (
-            <label 
+            <label
               key={method}
               className={cn(
                 "cursor-pointer border rounded-xl p-3 flex flex-col items-center justify-center gap-1 transition-all",
-                form.watch("paymentMethod") === method 
-                  ? "bg-primary/5 border-primary text-primary" 
+                form.watch("paymentMethod") === method
+                  ? "bg-primary/5 border-primary text-primary"
                   : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"
               )}
             >
-              <input 
-                type="radio" 
-                value={method} 
-                {...form.register("paymentMethod")} 
+              <input
+                type="radio"
+                value={method}
+                {...form.register("paymentMethod")}
                 className="hidden"
               />
               {method === "CASH" && <Banknote className="h-5 w-5" />}
@@ -194,7 +315,7 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="pt-2 flex justify-end">
         <button
           type="submit"
-          disabled={createSale.isPending}
+          disabled={createSale.isPending || Number(totalAmount) === 0}
           className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium shadow-md hover:shadow-lg disabled:opacity-50 transition-all"
         >
           {createSale.isPending ? "Recording..." : "Record Sale"}

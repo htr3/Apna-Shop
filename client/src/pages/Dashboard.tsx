@@ -1,6 +1,7 @@
 import { useDashboardStats, useSales } from "@/hooks/use-shop";
 import { Layout } from "@/components/Layout";
 import { StatsCard } from "@/components/StatsCard";
+import { DailySummaryPanel } from "@/components/DailySummaryPanel";
 import { 
   DollarSign, 
   Calendar, 
@@ -191,6 +192,15 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground font-medium">TRUSTABLE</p>
             </div>
           </div>
+        </div>
+
+        {/* Daily Summary Section */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 col-span-full">
+          <div className="mb-6">
+            <h3 className="text-lg font-bold font-display text-slate-900">Daily Summary</h3>
+            <p className="text-sm text-muted-foreground">View today's performance and schedule automated reports</p>
+          </div>
+          <DailySummaryPanel />
         </div>
       </div>
     </Layout>

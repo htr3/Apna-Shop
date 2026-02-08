@@ -1,12 +1,13 @@
 import { z } from 'zod';
-import { 
-  insertCustomerSchema, 
-  insertBorrowingSchema, 
+import {
+  insertCustomerSchema,
+  insertBorrowingSchema,
   insertSaleSchema,
   customers,
   borrowings,
   sales,
-  loginSchema
+  loginSchema,
+  signupSchema
 } from './schema';
 
 export const errorSchemas = {
@@ -29,7 +30,16 @@ export const api = {
       path: '/api/login' as const,
       input: loginSchema,
       responses: {
-        200: z.object({ success: z.boolean(), username: z.string() }),
+        200: z.object({ success: z.boolean(), username: z.string(), role: z.string(), userId: z.number() }),
+        400: errorSchemas.validation,
+      }
+    },
+    signup: {
+      method: 'POST' as const,
+      path: '/api/signup' as const,
+      input: signupSchema,
+      responses: {
+        201: z.object({ success: z.boolean(), username: z.string() }),
         400: errorSchemas.validation,
       }
     }
