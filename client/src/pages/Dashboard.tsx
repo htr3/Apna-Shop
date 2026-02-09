@@ -2,7 +2,8 @@ import { useDashboardStats, useSales } from "@/hooks/use-shop";
 import { Layout } from "@/components/Layout";
 import { StatsCard } from "@/components/StatsCard";
 import { DailySummaryPanel } from "@/components/DailySummaryPanel";
-import { 
+import { ProductManager } from "@/components/ProductManager";
+import {
   DollarSign, 
   Calendar, 
   AlertCircle, 
@@ -201,6 +202,11 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground">View today's performance and schedule automated reports</p>
           </div>
           <DailySummaryPanel />
+        </div>
+
+        {/* Product Manager Section */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 col-span-full">
+          <ProductManager />
         </div>
       </div>
     </Layout>

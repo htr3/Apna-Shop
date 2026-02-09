@@ -7,9 +7,10 @@ import { z } from "zod";
 // Customers Table
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(),  // ✨ CHANGED: Shopkeeper identifier
   userId: integer("user_id").notNull(),
   name: text("name").notNull(),
-  phone: text("phone").notNull().unique(),
+  phone: text("phone").notNull(),
   trustScore: integer("trust_score").default(100), // 0-100
   totalPurchase: numeric("total_purchase").default("0"),
   borrowedAmount: numeric("borrowed_amount").default("0"), // Total outstanding
@@ -19,6 +20,7 @@ export const customers = pgTable("customers", {
 // Borrowings (Udhaar) Table
 export const borrowings = pgTable("borrowings", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(),  // ✨ CHANGED: Shopkeeper identifier
   customerId: integer("customer_id").notNull(),
   amount: numeric("amount").notNull(),
   date: timestamp("date").defaultNow(),
@@ -30,6 +32,7 @@ export const borrowings = pgTable("borrowings", {
 // Sales Table (for daily sales tracking)
 export const sales = pgTable("sales", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(),  // ✨ CHANGED: Shopkeeper identifier
   userId: integer("user_id").notNull(),
   amount: numeric("amount").notNull(), // Total amount (paid + pending)
   paidAmount: numeric("paid_amount").default("0"), // Amount paid immediately
@@ -37,23 +40,26 @@ export const sales = pgTable("sales", {
   date: timestamp("date").defaultNow(),
   paymentMethod: text("payment_method", { enum: ["CASH", "ONLINE", "CREDIT"] }).default("CASH"),
   customerId: integer("customer_id"), // Optional, for tracking who bought what
+  createdByUserId: integer("created_by_user_id"), // NEW: Which staff/user made this sale
 });
 
 // Sale Items Table (for tracking which products are sold)
 export const saleItems = pgTable("sale_items", {
   id: serial("id").primaryKey(),
   saleId: integer("sale_id").notNull(),
-  productId: integer("product_id").notNull(),
+  productId: integer("product_id"), // NULL if isOther is true
   productName: text("product_name").notNull(), // Denormalized for quick access
   quantity: integer("quantity").notNull(),
   price: numeric("price").notNull(), // Price per unit
   total: numeric("total").notNull(), // quantity * price
+  isOther: boolean("is_other").default(false), // NEW: true if custom product, false if from product list
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Notification Settings Table
 export const notificationSettings = pgTable("notification_settings", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(),  // ✨ CHANGED: Shopkeeper identifier
   customerId: integer("customer_id").notNull(),
   whatsappEnabled: boolean("whatsapp_enabled").default(true),
   smsEnabled: boolean("sms_enabled").default(false),
@@ -64,6 +70,7 @@ export const notificationSettings = pgTable("notification_settings", {
 // Notifications Log Table (for tracking sent reminders)
 export const notificationsLog = pgTable("notifications_log", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(), // Tenant identifier
   borrowingId: integer("borrowing_id").notNull(),
   customerId: integer("customer_id").notNull(),
   type: text("type", { enum: ["WHATSAPP", "SMS", "EMAIL"] }).notNull(),
@@ -76,6 +83,7 @@ export const notificationsLog = pgTable("notifications_log", {
 // Invoices Table (for tracking generated invoices)
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(), // Tenant identifier
   saleId: integer("sale_id").notNull(),
   customerId: integer("customer_id"),
   invoiceNumber: text("invoice_number").notNull().unique(),
@@ -86,11 +94,28 @@ export const invoices = pgTable("invoices", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Products Table (for quick product management in sales)
+export const products = pgTable("products", {
+  id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(),  // ✨ CHANGED: Shopkeeper identifier
+  userId: integer("user_id").notNull(),
+  name: text("name").notNull(),
+  price: numeric("price").notNull(),
+  quantity: integer("quantity").default(0), // Stock quantity
+  unit: text("unit"), // e.g., "Piece", "Kg", "Liter", "Box"
+  category: text("category"), // Optional: Snacks, Beverages, etc.
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Inventory Table (for tracking products)
 export const inventory = pgTable("inventory", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(), // Tenant identifier
   name: text("name").notNull(),
-  sku: text("sku").unique(),
+  sku: text("sku"),
   quantity: integer("quantity").default(0),
   minThreshold: integer("min_threshold").default(10), // Alert when below this
   avgDailySales: numeric("avg_daily_sales").default("0"),
@@ -102,6 +127,7 @@ export const inventory = pgTable("inventory", {
 // Inventory Transactions (for tracking inventory changes)
 export const inventoryTransactions = pgTable("inventory_transactions", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(), // Tenant identifier
   itemId: integer("item_id").notNull(),
   type: text("type", { enum: ["SALE", "RESTOCK", "ADJUSTMENT", "LOSS"] }).notNull(),
   quantity: integer("quantity").notNull(),
@@ -112,6 +138,7 @@ export const inventoryTransactions = pgTable("inventory_transactions", {
 // Expenses Table (for tracking shop expenses)
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(),  // ✨ CHANGED: Shopkeeper identifier
   category: text("category", {
     enum: [
       "RENT",
@@ -136,7 +163,8 @@ export const expenses = pgTable("expenses", {
 // Users Table (for multi-user support)
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
+  mobileNo: text("mobile_no").notNull().unique(),  // ✨ CHANGED: Unique identifier for shopkeeper
+  username: text("username").notNull(),
   password: text("password").notNull(),
   email: text("email"),
   role: text("role", { enum: ["OWNER", "MANAGER", "STAFF"] }).default("STAFF"),
@@ -149,6 +177,7 @@ export const users = pgTable("users", {
 // User Activity Log (for audit trail)
 export const userActivityLog = pgTable("user_activity_log", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(),  // ✨ CHANGED: Shopkeeper identifier
   userId: integer("user_id").notNull(),
   action: text("action").notNull(), // e.g., "CREATE_SALE", "VIEW_REPORT", "DELETE_EXPENSE"
   module: text("module").notNull(), // e.g., "SALES", "EXPENSES", "CUSTOMERS"
@@ -160,6 +189,7 @@ export const userActivityLog = pgTable("user_activity_log", {
 // Suppliers Table
 export const suppliers = pgTable("suppliers", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(),  // ✨ CHANGED: Shopkeeper identifier
   name: text("name").notNull(),
   phone: text("phone"),
   email: text("email"),
@@ -175,6 +205,7 @@ export const suppliers = pgTable("suppliers", {
 // Supplier Transactions (purchases and payments)
 export const supplierTransactions = pgTable("supplier_transactions", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(),  // ✨ CHANGED: Shopkeeper identifier
   supplierId: integer("supplier_id").notNull(),
   type: text("type", { enum: ["PURCHASE", "PAYMENT", "RETURN", "ADJUSTMENT"] }).notNull(),
   amount: numeric("amount").notNull(),
@@ -188,11 +219,12 @@ export const supplierTransactions = pgTable("supplier_transactions", {
 // UPI Payments Table (for tracking online UPI payments)
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(),  // ✨ CHANGED: Shopkeeper identifier
   customerId: integer("customer_id").notNull(),
   borrowingId: integer("borrowing_id"), // Optional: links to specific borrowing
   amount: numeric("amount").notNull(),
   paymentMethod: text("payment_method", { enum: ["UPI", "BANK_TRANSFER", "CARD", "CASH"] }).default("UPI"),
-  transactionId: text("transaction_id").notNull().unique(), // Unique transaction ID from payment provider
+  transactionId: text("transaction_id").notNull(), // Unique transaction ID from payment provider
   status: text("status", { enum: ["SUCCESS", "PENDING", "FAILED"] }).default("PENDING"),
   reference: text("reference"), // Payment reference/order ID
   upiId: text("upi_id"), // Customer's UPI ID
@@ -205,6 +237,7 @@ export const payments = pgTable("payments", {
 // Payment Settings Table (for storing owner's payment configuration)
 export const paymentSettings = pgTable("payment_settings", {
   id: serial("id").primaryKey(),
+  mobileNo: text("mobile_no").notNull(),  // ✨ CHANGED: Shopkeeper identifier
   ownerUpiId: text("owner_upi_id"), // Owner's UPI ID
   ownerUpiName: text("owner_upi_name"), // Owner's name for UPI
   ownerPhoneNumber: text("owner_phone_number"), // Owner's phone number
@@ -224,18 +257,23 @@ export const paymentSettings = pgTable("payment_settings", {
 
 // === SCHEMAS ===
 
-export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, userId: true });
-export const insertBorrowingSchema = createInsertSchema(borrowings).omit({ id: true }).extend({
+export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, userId: true, mobileNo: true });
+export const insertBorrowingSchema = createInsertSchema(borrowings).omit({ id: true, mobileNo: true }).extend({
   date: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
   dueDate: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
 });
-export const insertSaleSchema = createInsertSchema(sales).omit({ id: true, userId: true }).extend({
+export const insertSaleSchema = createInsertSchema(sales).omit({ id: true, userId: true, mobileNo: true }).extend({
   date: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
 });
 export const insertSaleItemSchema = createInsertSchema(saleItems).omit({ id: true, createdAt: true });
-export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings).omit({ id: true });
-export const insertNotificationsLogSchema = createInsertSchema(notificationsLog).omit({ id: true });
-export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, invoiceUrl: true });
+export const insertProductSchema = createInsertSchema(products).omit({ id: true, userId: true, mobileNo: true, createdAt: true, updatedAt: true }).extend({
+  quantity: z.number().int().min(0).optional(),
+  unit: z.string().min(1).optional(),
+});
+export const updateProductSchema = insertProductSchema.partial();
+export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings).omit({ id: true, mobileNo: true });
+export const insertNotificationsLogSchema = createInsertSchema(notificationsLog).omit({ id: true, mobileNo: true });
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, invoiceUrl: true, mobileNo: true });
 export const insertInventorySchema = createInsertSchema(inventory).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).omit({ id: true });
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true }).extend({
@@ -265,6 +303,9 @@ export type InsertSale = z.infer<typeof insertSaleSchema>;
 
 export type SaleItem = typeof saleItems.$inferSelect;
 export type InsertSaleItem = z.infer<typeof insertSaleItemSchema>;
+
+export type Product = typeof products.$inferSelect;
+export type InsertProduct = z.infer<typeof insertProductSchema>;
 
 export type NotificationSettings = typeof notificationSettings.$inferSelect;
 export type InsertNotificationSettings = z.infer<typeof insertNotificationSettingsSchema>;

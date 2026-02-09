@@ -30,16 +30,19 @@ export default function Login() {
       return res.json();
     },
     onSuccess: (data) => {
-      localStorage.setItem("shopOwner", data.username);
-      localStorage.setItem("userRole", data.role);
-      localStorage.setItem("userId", data.userId);
+      // Store JWT token and user info
+      localStorage.setItem("authToken", data.token);  // ✨ Store JWT token
+      localStorage.setItem("shopOwner", data.user.username);
+      localStorage.setItem("userRole", data.user.role);
+      localStorage.setItem("userId", data.user.userId);
+      localStorage.setItem("mobileNo", data.user.mobileNo);  // ✨ Store mobileNo
       if (rememberMe) {
         localStorage.setItem("rememberMe", "true");
       }
       setLocation("/");
       toast({
         title: "Welcome back!",
-        description: `Logged in as ${data.username}`,
+        description: `Logged in as ${data.user.username}`,
       });
     },
     onError: (error: Error) => {

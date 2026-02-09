@@ -9,6 +9,7 @@ import { insightsService } from "./services/insightsService";
 import { inventoryService } from "./services/inventoryService";
 import { trustScoreService } from "./services/trustScoreService";
 import { expenseService } from "./services/expenseService";
+import { generateToken, authenticateToken, AuthRequest } from "./middleware/auth";  // ✨ NEW
 import { userManagementService } from "./services/userManagementService";
 import { supplierService } from "./services/supplierService";
 import { reportService } from "./services/reportService";
@@ -58,12 +59,24 @@ export async function registerRoutes(
         });
       }
 
-      // Return user info (excluding password)
+      // Generate JWT token
+      const token = generateToken({
+        userId: user.id,
+        username: user.username,
+        mobileNo: user.mobileNo,
+        role: user.role ?? "STAFF"
+      });
+
+      // Return user info with token
       res.json({
         success: true,
-        username: user.username,
-        role: user.role,
-        userId: user.id
+        token,  // ✨ JWT token for authentication
+        user: {
+          username: user.username,
+          role: user.role,
+          userId: user.id,
+          mobileNo: user.mobileNo
+        }
       });
     } catch (error) {
       console.error("Login error:", error);
@@ -76,11 +89,11 @@ export async function registerRoutes(
   // Signup
   app.post(api.auth.signup.path, async (req, res) => {
     try {
-      const { username, password, confirmPassword } = req.body;
+      const { username, password, confirmPassword, mobileNo } = req.body;
 
-      if (!username || !password || !confirmPassword) {
+      if (!username || !password || !confirmPassword || !mobileNo) {
         return res.status(400).json({
-          message: "Username, password, and confirm password are required"
+          message: "Username, password, confirm password, and mobile number are required"
         });
       }
 
@@ -90,7 +103,11 @@ export async function registerRoutes(
         });
       }
 
-      const user = await userManagementService.signup({ username, password });
+      const user = await userManagementService.signup({
+        username,
+        password,
+        mobileNo  // ✨ CHANGED: Required field
+      });
 
       res.status(201).json({
         success: true,
@@ -105,21 +122,24 @@ export async function registerRoutes(
   });
 
   // Dashboard Stats
-  app.get(api.dashboard.stats.path, async (req, res) => {
-    const stats = await storage.getDashboardStats();
+  app.get(api.dashboard.stats.path, authenticateToken, async (req: AuthRequest, res) => {
+    const mobileNo = req.user!.mobileNo;
+    const stats = await storage.getDashboardStats(mobileNo);
     res.json(stats);
   });
 
   // Customers
-  app.get(api.customers.list.path, async (req, res) => {
-    const customers = await storage.getCustomers();
+  app.get(api.customers.list.path, authenticateToken, async (req: AuthRequest, res) => {
+    const mobileNo = req.user!.mobileNo;  // ✨ Get from authenticated user
+    const customers = await storage.getCustomers(mobileNo);  // ✨ Filter by mobileNo
     res.json(customers);
   });
 
-  app.post(api.customers.create.path, async (req, res) => {
+  app.post(api.customers.create.path, authenticateToken, async (req: AuthRequest, res) => {
     try {
       const input = api.customers.create.input.parse(req.body);
-      const customer = await storage.createCustomer(input);
+      const mobileNo = req.user!.mobileNo;  // ✨ Get from authenticated user
+      const customer = await storage.createCustomer(input, mobileNo);  // ✨ Use user's mobileNo
       res.status(201).json(customer);
     } catch (error: any) {
       console.error("Customer creation error:", error);
@@ -155,15 +175,17 @@ export async function registerRoutes(
   });
 
   // Borrowings
-  app.get(api.borrowings.list.path, async (req, res) => {
-    const borrowings = await storage.getBorrowings();
+  app.get(api.borrowings.list.path, authenticateToken, async (req: AuthRequest, res) => {
+    const mobileNo = req.user!.mobileNo;
+    const borrowings = await storage.getBorrowings(mobileNo);
     res.json(borrowings);
   });
 
-  app.post(api.borrowings.create.path, async (req, res) => {
+  app.post(api.borrowings.create.path, authenticateToken, async (req: AuthRequest, res) => {
     try {
       const input = api.borrowings.create.input.parse(req.body);
-      const borrowing = await storage.createBorrowing(input);
+      const mobileNo = req.user!.mobileNo;
+      const borrowing = await storage.createBorrowing(input, mobileNo);
       res.status(201).json(borrowing);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -180,7 +202,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch(api.borrowings.update.path, async (req, res) => {
+  app.patch(api.borrowings.update.path, authenticateToken, async (req: AuthRequest, res) => {
     const { status } = req.body;
     try {
       const borrowing = await storage.updateBorrowingStatus(Number(req.params.id), status);
@@ -196,15 +218,17 @@ export async function registerRoutes(
   });
 
   // Sales
-  app.get(api.sales.list.path, async (req, res) => {
-    const sales = await storage.getSales();
+  app.get(api.sales.list.path, authenticateToken, async (req: AuthRequest, res) => {
+    const mobileNo = req.user!.mobileNo;
+    const sales = await storage.getSales(mobileNo);
     res.json(sales);
   });
 
-  app.post(api.sales.create.path, async (req, res) => {
+  app.post(api.sales.create.path, authenticateToken, async (req: AuthRequest, res) => {
     try {
       const input = api.sales.create.input.parse(req.body);
-      const sale = await storage.createSale(input);
+      const mobileNo = req.user!.mobileNo;
+      const sale = await storage.createSale(input, mobileNo);
       res.status(201).json(sale);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -221,6 +245,62 @@ export async function registerRoutes(
         console.error("Error creating sale:", error);
         res.status(500).json({ message: error.message || "Failed to create sale" });
       }
+    }
+  });
+
+  // === PRODUCTS ROUTES ===
+  app.get(api.products.list.path, authenticateToken, async (req: AuthRequest, res) => {
+    const mobileNo = req.user!.mobileNo;
+    const products = await storage.getProducts(mobileNo);
+    res.json(products);
+  });
+
+  app.post(api.products.create.path, authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const input = api.products.create.input.parse(req.body);
+      const mobileNo = req.user!.mobileNo;
+      const product = await storage.createProduct(input, mobileNo);
+      res.status(201).json(product);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: error.errors[0].message });
+      } else {
+        console.error("Error creating product:", error);
+        res.status(500).json({ message: error.message || "Failed to create product" });
+      }
+    }
+  });
+
+  app.put(api.products.update.path, authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(String(req.params.id));
+      const input = api.products.update.input.parse(req.body);
+      const product = await storage.updateProduct(id, input);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      res.json(product);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: error.errors[0].message });
+      } else {
+        console.error("Error updating product:", error);
+        res.status(500).json({ message: error.message || "Failed to update product" });
+      }
+    }
+  });
+
+  app.delete(api.products.delete.path, authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(String(req.params.id));
+      const success = await storage.deleteProduct(id);
+      if (!success) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting product:", error);
+      res.status(500).json({ message: error.message || "Failed to delete product" });
     }
   });
 
@@ -1012,9 +1092,10 @@ export async function registerRoutes(
   });
 
   // Daily Summary - Get today's summary
-  app.get("/api/daily-summary/today", async (req, res) => {
+  app.get("/api/daily-summary/today", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const summary = await dailySummaryService.generateDailySummary();
+      const mobileNo = req.user!.mobileNo;
+      const summary = await dailySummaryService.generateDailySummary(new Date(), mobileNo);
       res.json(summary);
     } catch (error) {
       res.status(500).json({ message: "Failed to generate daily summary" });
@@ -1022,13 +1103,14 @@ export async function registerRoutes(
   });
 
   // Daily Summary - Get summary for specific date
-  app.get("/api/daily-summary/:date", async (req, res) => {
+  app.get("/api/daily-summary/:date", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const date = new Date(req.params.date);
       if (isNaN(date.getTime())) {
         return res.status(400).json({ message: "Invalid date format" });
       }
-      const summary = await dailySummaryService.generateDailySummary(date);
+      const mobileNo = req.user!.mobileNo;
+      const summary = await dailySummaryService.generateDailySummary(date, mobileNo);
       res.json(summary);
     } catch (error) {
       res.status(500).json({ message: "Failed to generate daily summary" });
@@ -1036,13 +1118,14 @@ export async function registerRoutes(
   });
 
   // Daily Summary - Send summary to phone
-  app.post("/api/daily-summary/send", async (req, res) => {
+  app.post("/api/daily-summary/send", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const { phoneNumber } = req.body;
       if (!phoneNumber) {
         return res.status(400).json({ message: "Phone number is required" });
       }
-      const summary = await dailySummaryService.generateDailySummary();
+      const mobileNo = req.user!.mobileNo;
+      const summary = await dailySummaryService.generateDailySummary(new Date(), mobileNo);
       const success = await dailySummaryService.sendDailySummary(
         phoneNumber,
         summary
@@ -1058,7 +1141,7 @@ export async function registerRoutes(
   });
 
   // Daily Summary - Schedule recurring daily summary
-  app.post("/api/daily-summary/schedule", async (req, res) => {
+  app.post("/api/daily-summary/schedule", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const { phoneNumber, hour = 20, minute = 0 } = req.body;
       if (!phoneNumber) {
@@ -1082,9 +1165,10 @@ export async function registerRoutes(
   });
 
   // Daily Summary - Get weekly summary
-  app.get("/api/daily-summary/weekly", async (req, res) => {
+  app.get("/api/daily-summary/weekly", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const weeklySummary = await dailySummaryService.getWeeklySummary();
+      const mobileNo = req.user!.mobileNo;
+      const weeklySummary = await dailySummaryService.getWeeklySummary(mobileNo);
       res.json(weeklySummary);
     } catch (error) {
       res.status(500).json({ message: "Failed to generate weekly summary" });

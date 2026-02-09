@@ -3,9 +3,12 @@ import {
   insertCustomerSchema,
   insertBorrowingSchema,
   insertSaleSchema,
+  insertProductSchema,
+  updateProductSchema,
   customers,
   borrowings,
   sales,
+  products,
   loginSchema,
   signupSchema
 } from './schema';
@@ -137,6 +140,41 @@ export const api = {
       responses: {
         201: z.custom<typeof sales.$inferSelect>(),
         400: errorSchemas.validation,
+      },
+    }
+  },
+  products: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/products' as const,
+      responses: {
+        200: z.array(z.custom<typeof products.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/products' as const,
+      input: insertProductSchema,
+      responses: {
+        201: z.custom<typeof products.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/products/:id' as const,
+      input: updateProductSchema,
+      responses: {
+        200: z.custom<typeof products.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/products/:id' as const,
+      responses: {
+        200: z.object({ success: z.boolean() }),
+        404: errorSchemas.notFound,
       },
     }
   }

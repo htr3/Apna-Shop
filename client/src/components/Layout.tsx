@@ -6,7 +6,8 @@ import {
   LogOut,
   ShoppingBag,
   Store,
-  Settings
+  Settings,
+  Package
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ export function Layout({ children }: LayoutProps) {
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/sales", label: "Sales", icon: ShoppingBag },
+    { href: "/products", label: "Products", icon: Package },
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/borrowings", label: "Udhaar", icon: CreditCard },
     ...(userRole === "OWNER" ? [{ href: "/payment-settings", label: "Payment Settings", icon: Settings }] : []),

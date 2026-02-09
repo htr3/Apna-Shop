@@ -11,6 +11,7 @@ import Dashboard from "@/pages/Dashboard";
 import Customers from "@/pages/Customers";
 import Borrowings from "@/pages/Borrowings";
 import Sales from "@/pages/Sales";
+import Products from "@/pages/Products";
 import PaymentSettings from "@/pages/PaymentSettings";
 import { I18nProvider } from "@/i18n/I18nContext";
 
@@ -54,6 +55,9 @@ function Router() {
       </Route>
       <Route path="/sales">
         <ProtectedRoute component={Sales} />
+      </Route>
+      <Route path="/products">
+        <ProtectedRoute component={Products} />
       </Route>
       <Route path="/payment-settings">
         <ProtectedRoute component={PaymentSettings} requiredRole="OWNER" />

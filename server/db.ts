@@ -34,8 +34,9 @@ export async function seedUsers() {
       return;
     }
 
-    // Create default owner
+    // Create default owner with mobileNo (required)
     await db.insert(schema.users).values({
+      mobileNo: "9999999999",  // ✨ CHANGED: Use mobileNo as identifier
       username: "owner",
       password: "owner123", // In production, use proper hashing
       email: "owner@shopkeeper.local",
@@ -43,9 +44,10 @@ export async function seedUsers() {
       isActive: true,
     });
 
-    // Create default staff users
+    // Create default staff users with mobileNo
     await db.insert(schema.users).values([
       {
+        mobileNo: "9999999998",  // ✨ CHANGED: Use mobileNo as identifier
         username: "staff1",
         password: "staff123",
         email: "staff1@shopkeeper.local",
@@ -53,6 +55,7 @@ export async function seedUsers() {
         isActive: true,
       },
       {
+        mobileNo: "9999999997",  // ✨ CHANGED: Use mobileNo as identifier
         username: "staff2",
         password: "staff123",
         email: "staff2@shopkeeper.local",

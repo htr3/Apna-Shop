@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useCustomers, useCreateCustomer } from "@/hooks/use-shop";
-import { 
+import {
   Plus, 
   Search, 
   Phone, 

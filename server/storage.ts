@@ -1,8 +1,9 @@
 import {
-  customers, borrowings, sales,
+  customers, borrowings, sales, products,
   type Customer, type InsertCustomer,
   type Borrowing, type InsertBorrowing,
   type Sale, type InsertSale,
+  type Product, type InsertProduct,
   type DashboardStats
 } from "@shared/schema";
 import { db } from "./db";
@@ -10,36 +11,44 @@ import { eq, and, gte } from "drizzle-orm"
 
 export interface IStorage {
   // Customers
-  getCustomers(): Promise<Customer[]>;
+  getCustomers(mobileNo?: string): Promise<Customer[]>;
   getCustomer(id: number): Promise<Customer | undefined>;
-  createCustomer(customer: InsertCustomer): Promise<Customer>;
+  createCustomer(customer: InsertCustomer, mobileNo?: string): Promise<Customer>;
   updateCustomer(id: number, updates: Partial<InsertCustomer>): Promise<Customer>;
 
   // Borrowings
-  getBorrowings(): Promise<(Borrowing & { customerName: string })[]>;
-  createBorrowing(borrowing: InsertBorrowing): Promise<Borrowing>;
+  getBorrowings(mobileNo?: string): Promise<(Borrowing & { customerName: string })[]>;
+  createBorrowing(borrowing: InsertBorrowing, mobileNo?: string): Promise<Borrowing>;
   updateBorrowingStatus(id: number, status: "PAID" | "PENDING" | "OVERDUE"): Promise<Borrowing>;
 
   // Sales
-  getSales(): Promise<Sale[]>;
-  createSale(sale: InsertSale): Promise<Sale>;
+  getSales(mobileNo?: string): Promise<Sale[]>;
+  createSale(sale: InsertSale, mobileNo?: string): Promise<Sale>;
+
+  // Products
+  getProducts(mobileNo?: string): Promise<Product[]>;
+  createProduct(product: InsertProduct, mobileNo?: string): Promise<Product>;
+  updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | null>;
+  deleteProduct(id: number): Promise<boolean>;
 
   // Stats
-  getDashboardStats(): Promise<DashboardStats>;
+  getDashboardStats(mobileNo?: string): Promise<DashboardStats>;
 }
 
 export class MemStorage implements IStorage {
   private customers: Map<number, Customer>;
   private borrowings: Map<number, Borrowing>;
   private sales: Map<number, Sale>;
-  private currentId: { customers: number; borrowings: number; sales: number };
+  private products: Map<number, Product>;
+  private currentId: { customers: number; borrowings: number; sales: number; products: number };
 
   constructor() {
     this.customers = new Map();
     this.borrowings = new Map();
     this.sales = new Map();
-    this.currentId = { customers: 1, borrowings: 1, sales: 1 };
-    
+    this.products = new Map();
+    this.currentId = { customers: 1, borrowings: 1, sales: 1, products: 1 };
+
     this.seedData();
   }
 
@@ -54,6 +63,17 @@ export class MemStorage implements IStorage {
     ];
 
     initialCustomers.forEach(c => this.createCustomer(c));
+
+    // Seed Products
+    const initialProducts: InsertProduct[] = [
+      { name: "Tea (Cup)", price: "10", category: "Beverages", description: "Hot tea" },
+      { name: "Coffee (Cup)", price: "20", category: "Beverages", description: "Black coffee" },
+      { name: "Samosa", price: "5", category: "Snacks", description: "Fried samosa" },
+      { name: "Biscuits Pack", price: "30", category: "Snacks", description: "Cookie biscuits" },
+      { name: "Milk (250ml)", price: "15", category: "Beverages", description: "Fresh milk" },
+    ];
+
+    initialProducts.forEach(p => this.createProduct(p));
 
     // Seed Sales (Last 30 days)
     const today = new Date();
@@ -97,7 +117,10 @@ export class MemStorage implements IStorage {
     });
   }
 
-  async getCustomers(): Promise<Customer[]> {
+  async getCustomers(mobileNo?: string): Promise<Customer[]> {
+    if (mobileNo) {
+      return Array.from(this.customers.values()).filter(c => c.mobileNo === mobileNo);
+    }
     return Array.from(this.customers.values());
   }
 
@@ -105,10 +128,11 @@ export class MemStorage implements IStorage {
     return this.customers.get(id);
   }
 
-  async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
+  async createCustomer(insertCustomer: InsertCustomer, mobileNo: string = "0"): Promise<Customer> {
     const id = this.currentId.customers++;
     const customer: Customer = {
       id,
+      mobileNo,
       userId: 1,
       name: insertCustomer.name,
       phone: insertCustomer.phone,
@@ -126,6 +150,7 @@ export class MemStorage implements IStorage {
     if (!existing) throw new Error("Customer not found");
     const updated: Customer = {
       id: existing.id,
+      mobileNo: existing.mobileNo,
       userId: existing.userId,
       name: updates.name ?? existing.name,
       phone: updates.phone ?? existing.phone,
@@ -138,26 +163,36 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async getBorrowings(): Promise<(Borrowing & { customerName: string })[]> {
-    return Array.from(this.borrowings.values()).map(b => {
-      const customer = this.customers.get(b.customerId);
-      return { ...b, customerName: customer ? customer.name : "Unknown" };
-    });
+  async getBorrowings(mobileNo?: string): Promise<(Borrowing & { customerName: string })[]> {
+    const list = Array.from(this.borrowings.values());
+    const filtered = mobileNo ? list.filter(b => b.mobileNo === mobileNo) : list;
+    const customerMap = new Map<number, string>();
+    for (const b of filtered) {
+      if (!customerMap.has(b.customerId)) {
+        const customer = this.customers.get(b.customerId);
+        customerMap.set(b.customerId, customer?.name || "Unknown");
+      }
+    }
+    return filtered.map(b => ({
+      ...b,
+      customerName: customerMap.get(b.customerId) || "Unknown",
+    }));
   }
 
-  async createBorrowing(insertBorrowing: InsertBorrowing): Promise<Borrowing> {
+  async createBorrowing(borrowing: InsertBorrowing, mobileNo: string = "0"): Promise<Borrowing> {
     const id = this.currentId.borrowings++;
-    const borrowing: Borrowing = {
+    const record: Borrowing = {
       id,
-      customerId: insertBorrowing.customerId,
-      amount: insertBorrowing.amount,
-      date: insertBorrowing.date || null,
-      dueDate: insertBorrowing.dueDate || null,
-      status: insertBorrowing.status || "PENDING",
-      notes: insertBorrowing.notes || null,
+      mobileNo,
+      customerId: borrowing.customerId,
+      amount: borrowing.amount,
+      date: borrowing.date || new Date(),
+      dueDate: borrowing.dueDate,
+      status: borrowing.status || "PENDING",
+      notes: borrowing.notes,
     };
-    this.borrowings.set(id, borrowing);
-    return borrowing;
+    this.borrowings.set(id, record);
+    return record;
   }
   async updateBorrowingStatus(id: number, status: "PAID" | "PENDING" | "OVERDUE"): Promise<Borrowing> {
     const existing = this.borrowings.get(id);
@@ -167,29 +202,73 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async getSales(): Promise<Sale[]> {
-    return Array.from(this.sales.values()).sort((a, b) => 
-      (b.date?.getTime() || 0) - (a.date?.getTime() || 0)
-    );
+  async getSales(mobileNo?: string): Promise<Sale[]> {
+    const list = Array.from(this.sales.values());
+    const filtered = mobileNo ? list.filter(s => s.mobileNo === mobileNo) : list;
+    return filtered.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
   }
 
-  async createSale(insertSale: InsertSale): Promise<Sale> {
+  async createSale(insertSale: InsertSale, mobileNo: string = "0"): Promise<Sale> {
     const id = this.currentId.sales++;
     const sale: Sale = {
       id,
+      mobileNo,
       userId: 1,
       amount: insertSale.amount,
-      paidAmount: insertSale.paidAmount ?? "0",
-      pendingAmount: insertSale.pendingAmount ?? "0",
-      date: insertSale.date ?? null,
-      paymentMethod: insertSale.paymentMethod ?? "CASH",
-      customerId: insertSale.customerId ?? null,
+      paidAmount: insertSale.paidAmount || "0",
+      pendingAmount: insertSale.pendingAmount || "0",
+      date: insertSale.date || new Date(),
+      paymentMethod: insertSale.paymentMethod || "CASH",
+      customerId: insertSale.customerId,
+      createdByUserId: insertSale.createdByUserId,
     };
     this.sales.set(id, sale);
     return sale;
   }
 
-  async getDashboardStats(): Promise<DashboardStats> {
+  async getProducts(mobileNo?: string): Promise<Product[]> {
+    const list = Array.from(this.products.values()).filter(p => p.isActive !== false);
+    return mobileNo ? list.filter(p => p.mobileNo === mobileNo) : list;
+  }
+
+  async createProduct(product: InsertProduct, mobileNo: string = "0"): Promise<Product> {
+    const id = this.currentId.products++;
+    const record: Product = {
+      id,
+      mobileNo,
+      userId: 1,
+      name: product.name,
+      price: product.price,
+      quantity: product.quantity ?? 0,
+      unit: product.unit ?? null,
+      category: product.category ?? null,
+      description: product.description ?? null,
+      isActive: product.isActive ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.products.set(id, record);
+    return record;
+  }
+
+  async updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | null> {
+    const existing = this.products.get(id);
+    if (!existing) return null;
+
+    const updated: Product = {
+      ...existing,
+      ...product,
+      updatedAt: new Date(),
+    };
+    this.products.set(id, updated);
+    return updated;
+  }
+
+  async deleteProduct(id: number): Promise<boolean> {
+    return this.products.delete(id);
+  }
+
+  async getDashboardStats(mobileNo?: string): Promise<DashboardStats> {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -198,26 +277,29 @@ export class MemStorage implements IStorage {
     const borrowingsList = Array.from(this.borrowings.values());
     const customersList = Array.from(this.customers.values());
 
-    const todaySales = salesList
+    const filteredSales = mobileNo ? salesList.filter(s => s.mobileNo === mobileNo) : salesList;
+    const filteredBorrowings = mobileNo ? borrowingsList.filter(b => b.mobileNo === mobileNo) : borrowingsList;
+    const filteredCustomers = mobileNo ? customersList.filter(c => c.mobileNo === mobileNo) : customersList;
+
+    const todaySales = filteredSales
       .filter(s => s.date && s.date >= startOfDay)
       .reduce((acc, curr) => acc + Number(curr.amount), 0);
 
-    const monthSales = salesList
+    const monthSales = filteredSales
       .filter(s => s.date && s.date >= startOfMonth)
       .reduce((acc, curr) => acc + Number(curr.amount), 0);
 
-    // Pending Udhaar = borrowings (PENDING/OVERDUE) + pending amounts from sales
-    const borrowingsPending = borrowingsList
+    const borrowingsPending = filteredBorrowings
       .filter(b => b.status === "PENDING" || b.status === "OVERDUE")
       .reduce((acc, curr) => acc + Number(curr.amount), 0);
 
-    const salesPendingTotal = salesList
+    const salesPendingTotal = filteredSales
       .reduce((acc, curr) => acc + Number(curr.pendingAmount || 0), 0);
 
     const pendingUdhaar = borrowingsPending + salesPendingTotal;
 
-    const trustableCount = customersList.filter(c => (c.trustScore || 0) >= 70).length;
-    const riskyCount = customersList.filter(c => (c.trustScore || 0) < 40).length;
+    const trustableCount = filteredCustomers.filter(c => (c.trustScore || 0) >= 70).length;
+    const riskyCount = filteredCustomers.filter(c => (c.trustScore || 0) < 40).length;
 
     return {
       todaySales,
@@ -231,7 +313,13 @@ export class MemStorage implements IStorage {
 
 // Database-backed storage using Drizzle ORM
 export class DbStorage implements IStorage {
-  async getCustomers(): Promise<Customer[]> {
+  async getCustomers(mobileNo?: string): Promise<Customer[]> {
+    if (mobileNo) {
+      return await db.query.customers.findMany({
+        where: (field, { eq }) => eq(field.mobileNo, mobileNo),
+      });
+    }
+    // Fallback: return all (for backward compatibility)
     return await db.query.customers.findMany();
   }
 
@@ -241,10 +329,11 @@ export class DbStorage implements IStorage {
     });
   }
 
-  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+  async createCustomer(customer: InsertCustomer, mobileNo: string = "0"): Promise<Customer> {
     try {
       const result = await db.insert(customers).values({
         ...customer,
+        mobileNo: mobileNo,  // ✨ CHANGED: Use mobileNo instead of shopkeeperId
         userId: 1, // Default user ID for single-user app
       }).returning();
       return result[0];
@@ -267,8 +356,10 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  async getBorrowings(): Promise<(Borrowing & { customerName: string })[]> {
-    const borrowingList = await db.query.borrowings.findMany();
+  async getBorrowings(mobileNo?: string): Promise<(Borrowing & { customerName: string })[]> {
+    const borrowingList = await db.query.borrowings.findMany({
+      where: mobileNo ? (field, { eq }) => eq(field.mobileNo, mobileNo) : undefined,
+    });
     const customerMap = new Map<number, string>();
 
     for (const b of borrowingList) {
@@ -286,9 +377,12 @@ export class DbStorage implements IStorage {
     }));
   }
 
-  async createBorrowing(borrowing: InsertBorrowing): Promise<Borrowing> {
+  async createBorrowing(borrowing: InsertBorrowing, mobileNo: string = "0"): Promise<Borrowing> {
     try {
-      const result = await db.insert(borrowings).values(borrowing).returning();
+      const result = await db.insert(borrowings).values({
+        ...borrowing,
+        mobileNo: mobileNo,  // ✨ CHANGED: Use mobileNo instead of shopkeeperId
+      }).returning();
       return result[0];
     } catch (error: any) {
       if (error.code === "23503") {
@@ -312,15 +406,62 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  async getSales(): Promise<Sale[]> {
-    const salesList = await db.query.sales.findMany();
-    return salesList.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+  async getSales(mobileNo?: string): Promise<(Sale & { createdByUserName?: string; customerName?: string })[]> {
+    const { users, customers } = await import("@shared/schema");
+    const salesList = await db.query.sales.findMany({
+      where: mobileNo ? (field, { eq }) => eq(field.mobileNo, mobileNo) : undefined,
+    });
+
+    // Fetch user and customer information for each sale
+    const salesWithInfo = await Promise.all(
+      salesList.map(async (sale: any) => {
+        let createdByUserName = "Admin";
+        let customerName = "Walk-in";
+
+        // If createdByUserId exists, fetch user name
+        if (sale.createdByUserId) {
+          try {
+            const user = await db.query.users.findFirst({
+              where: (u: any, { eq }: any) => eq(u.id, sale.createdByUserId),
+            });
+            if (user) {
+              createdByUserName = user.username || "Unknown User";
+            }
+          } catch (error) {
+            // User not found, keep default
+          }
+        }
+
+        // If customerId exists, fetch customer name
+        if (sale.customerId) {
+          try {
+            const customer = await db.query.customers.findFirst({
+              where: (c: any, { eq }: any) => eq(c.id, sale.customerId),
+            });
+            if (customer) {
+              customerName = customer.name || "Unknown Customer";
+            }
+          } catch (error) {
+            // Customer not found, keep default
+          }
+        }
+
+        return {
+          ...sale,
+          createdByUserName,
+          customerName
+        };
+      })
+    );
+
+    return salesWithInfo.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
   }
 
-  async createSale(sale: InsertSale): Promise<Sale> {
+  async createSale(sale: InsertSale, mobileNo: string = "0"): Promise<Sale> {
     try {
       const result = await db.insert(sales).values({
         ...sale,
+        mobileNo: mobileNo,  // ✨ CHANGED: Use mobileNo instead of shopkeeperId
         userId: 1,
         date: sale.date || null,
       }).returning();
@@ -394,14 +535,70 @@ export class DbStorage implements IStorage {
     }
   }
 
-  async getDashboardStats(): Promise<DashboardStats> {
+  async getProducts(mobileNo?: string): Promise<Product[]> {
+    return await db.query.products.findMany({
+      where: mobileNo
+        ? (field, { eq, and }) => and(eq(field.isActive, true), eq(field.mobileNo, mobileNo))
+        : (field, { eq }) => eq(field.isActive, true),
+    });
+  }
+
+  async createProduct(product: InsertProduct, mobileNo: string = "0"): Promise<Product> {
+    try {
+      const result = await db.insert(products).values({
+        ...product,
+        mobileNo: mobileNo,  // ✨ CHANGED: Use mobileNo instead of shopkeeperId
+        userId: 1,
+      }).returning();
+      return result[0];
+    } catch (error: any) {
+      console.error("Error creating product:", error);
+      throw error;
+    }
+  }
+
+  async updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | null> {
+    try {
+      const result = await db.update(products)
+        .set({
+          ...product,
+          updatedAt: new Date(),
+        })
+        .where(eq(products.id, id))
+        .returning();
+      return result[0] || null;
+    } catch (error: any) {
+      console.error("Error updating product:", error);
+      throw error;
+    }
+  }
+
+  async deleteProduct(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(products)
+        .where(eq(products.id, id))
+        .returning();
+      return result.length > 0;
+    } catch (error: any) {
+      console.error("Error deleting product:", error);
+      throw error;
+    }
+  }
+
+  async getDashboardStats(mobileNo?: string): Promise<DashboardStats> {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const salesList = await db.query.sales.findMany();
-    const borrowingList = await db.query.borrowings.findMany();
-    const customerList = await db.query.customers.findMany();
+    const salesList = await db.query.sales.findMany({
+      where: mobileNo ? (field, { eq }) => eq(field.mobileNo, mobileNo) : undefined,
+    });
+    const borrowingList = await db.query.borrowings.findMany({
+      where: mobileNo ? (field, { eq }) => eq(field.mobileNo, mobileNo) : undefined,
+    });
+    const customerList = await db.query.customers.findMany({
+      where: mobileNo ? (field, { eq }) => eq(field.mobileNo, mobileNo) : undefined,
+    });
 
     const todaySales = salesList
       .filter((s) => s.date && s.date >= startOfDay)
@@ -411,7 +608,6 @@ export class DbStorage implements IStorage {
       .filter((s) => s.date && s.date >= startOfMonth)
       .reduce((acc, curr) => acc + Number(curr.amount), 0);
 
-    // Pending Udhaar = borrowings (PENDING/OVERDUE) + pending amounts from sales
     const borrowingsPending = borrowingList
       .filter((b) => b.status === "PENDING" || b.status === "OVERDUE")
       .reduce((acc, curr) => acc + Number(curr.amount), 0);

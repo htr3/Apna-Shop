@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
-import { useSales, useCustomers, useCreateSale } from "@/hooks/use-shop";
+import { useSales, useCustomers, useCreateSale, useProducts } from "@/hooks/use-shop";
 import {
   Plus,
   Search,
@@ -92,10 +92,13 @@ export default function Sales() {
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Customer</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Created By</th>
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Amount Paid</th>
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Amount Pending</th>
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Total</th>
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Method</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Products</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -103,6 +106,12 @@ export default function Sales() {
                   <tr key={sale.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 text-sm text-slate-500">
                       {format(new Date(sale.date || ""), "MMM dd, yyyy • hh:mm a")}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-slate-700">
+                      {(sale as any).customerName || "Walk-in"}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-slate-700">
+                      {(sale as any).createdByUserName || "Admin"}
                     </td>
                     <td className="px-6 py-4">
                       <span className="font-bold text-green-600">₹{Number(sale.paidAmount || 0).toLocaleString()}</span>
@@ -121,6 +130,9 @@ export default function Sales() {
                         <span className="font-medium capitalize">{sale.paymentMethod?.toLowerCase()}</span>
                       </div>
                     </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-slate-600">📦 Tracked</span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -136,11 +148,20 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
   const { toast } = useToast();
   const createSale = useCreateSale();
   const { data: customers } = useCustomers();
+  const { data: products } = useProducts();
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [paidAmount, setPaidAmount] = useState<string>("0");
   const [pendingAmount, setPendingAmount] = useState<string>("0");
+
+  // Product states
+  const [items, setItems] = useState<Array<{ productName: string; quantity: number; price: number }>>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [isOtherProduct, setIsOtherProduct] = useState(false);
+  const [otherProductName, setOtherProductName] = useState("");
+  const [otherProductPrice, setOtherProductPrice] = useState("");
+  const [quantity, setQuantity] = useState("1");
 
   const form = useForm<InsertSale>({
     resolver: zodResolver(insertSaleSchema),
@@ -160,23 +181,94 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
   );
 
   const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
-  const totalAmount = (Number(paidAmount) + Number(pendingAmount)).toFixed(2);
+
+  // Calculate total from items or manual amounts
+  const itemsTotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+  const manualTotal = Number(paidAmount) + Number(pendingAmount);
+  const totalAmount = itemsTotal > 0 ? itemsTotal.toFixed(2) : manualTotal.toFixed(2);
+
+  const addProduct = () => {
+    let productName = "";
+    let productPrice = 0;
+
+    if (isOtherProduct) {
+      if (!otherProductPrice) {
+        toast({
+          title: "Invalid Price",
+          description: "Please enter the price for other product",
+          variant: "destructive"
+        });
+        return;
+      }
+      productName = "Other";  // ✅ Set as "Other" - no product name needed
+      productPrice = Number(otherProductPrice);
+    } else {
+      if (!selectedProductId) {
+        toast({
+          title: "Invalid Product",
+          description: "Please select a product",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const product = products?.find(p => p.id === Number(selectedProductId));
+      if (!product) return;
+
+      productName = product.name;
+      productPrice = Number(product.price);
+    }
+
+    if (Number(quantity) <= 0) {
+      toast({
+        title: "Invalid Quantity",
+        description: "Quantity must be greater than 0",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setItems([...items, { productName, quantity: Number(quantity), price: productPrice }]);
+
+    // Reset fields
+    setSelectedProductId("");
+    setOtherProductName("");
+    setOtherProductPrice("");
+    setQuantity("1");
+    setIsOtherProduct(false);
+  };
+
+  const removeProduct = (index: number) => {
+    setItems(items.filter((_, i) => i !== index));
+  };
 
   const onSubmit = (data: InsertSale) => {
+    if (Number(totalAmount) === 0) {
+      toast({
+        title: "Invalid Sale",
+        description: "Please add products or amounts",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const submitData = {
       ...data,
       amount: totalAmount,
-      paidAmount,
-      pendingAmount,
+      paidAmount: itemsTotal > 0 ? totalAmount : paidAmount,
+      pendingAmount: itemsTotal > 0 ? "0" : pendingAmount,
       customerId: selectedCustomerId || undefined,
+      items: JSON.stringify(items.length > 0 ? items : []), // Store items as JSON
     };
-    createSale.mutate(submitData, {
+
+    createSale.mutate(submitData as any, {
       onSuccess: () => {
-        toast({ title: "Success", description: "Sale recorded successfully" });
+        toast({ title: "Success", description: "Sale recorded successfully with products" });
         setSelectedCustomerId(null);
         setCustomerSearch("");
         setPaidAmount("0");
         setPendingAmount("0");
+        setItems([]);
         form.reset();
         onSuccess();
       },
@@ -187,7 +279,7 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4 max-h-[80vh] overflow-y-auto">
       <div className="space-y-2">
         <label className="text-sm font-medium text-slate-700">Customer (Optional)</label>
         <div className="relative">
@@ -251,31 +343,140 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Amount Paid (₹)</label>
-          <input
-            type="number"
-            step="0.01"
-            value={paidAmount}
-            onChange={(e) => setPaidAmount(e.target.value)}
-            placeholder="0.00"
-            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-          />
-        </div>
+      {/* Products Section */}
+      <div className="space-y-3 border-t border-slate-200 pt-4">
+        <h3 className="font-medium text-slate-900">📦 Products Sold</h3>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Amount Pending (₹)</label>
-          <input
-            type="number"
-            step="0.01"
-            value={pendingAmount}
-            onChange={(e) => setPendingAmount(e.target.value)}
-            placeholder="0.00"
-            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-          />
+        {items.length > 0 && (
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {items.map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
+                <div className="flex-1">
+                  <p className="font-medium text-sm text-slate-900">{item.productName}</p>
+                  <p className="text-xs text-slate-500">{item.quantity} × ₹{item.price.toLocaleString()} = ₹{(item.quantity * item.price).toLocaleString()}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeProduct(idx)}
+                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-dashed border-slate-300">
+          <div className="grid grid-cols-1 gap-2">
+            {/* Product Selection */}
+            {!isOtherProduct ? (
+              <>
+                <label className="text-xs font-medium text-slate-600">Select Product</label>
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "other") {
+                      setIsOtherProduct(true);
+                      setSelectedProductId("");
+                    } else {
+                      setSelectedProductId(val);
+                    }
+                  }}
+                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Choose a product...</option>
+                  {products?.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} - ₹{Number(product.price).toFixed(2)}
+                    </option>
+                  ))}
+                  <option value="other">Other Product</option>
+                </select>
+              </>
+            ) : (
+              <>
+                <label className="text-xs font-medium text-slate-600">Other Product Price Only (₹)</label>
+                <div className="space-y-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Price (₹)"
+                    value={otherProductPrice}
+                    onChange={(e) => setOtherProductPrice(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOtherProduct(false);
+                      setOtherProductName("");
+                      setOtherProductPrice("");
+                    }}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Back to product list
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Quantity */}
+            <div>
+              <label className="text-xs font-medium text-slate-600">Quantity</label>
+              <input
+                type="number"
+                placeholder="Qty"
+                min="1"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={addProduct}
+              className="px-3 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90 transition-all"
+            >
+              Add to Sale
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Payment Section */}
+      {items.length === 0 && (
+        <div className="space-y-2 border-t border-slate-200 pt-4">
+          <h3 className="font-medium text-slate-900">💰 Manual Entry</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Amount Paid (₹)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Amount Pending (₹)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={pendingAmount}
+                onChange={(e) => setPendingAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
         <div className="text-center">
@@ -285,7 +486,7 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-slate-700">Payment Method (for paid amount)</label>
+        <label className="text-sm font-medium text-slate-700">Payment Method</label>
         <div className="grid grid-cols-3 gap-2">
           {["CASH", "ONLINE", "CREDIT"].map((method) => (
             <label
@@ -312,7 +513,7 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       </div>
 
-      <div className="pt-2 flex justify-end">
+      <div className="pt-2 flex justify-end gap-2 border-t border-slate-200">
         <button
           type="submit"
           disabled={createSale.isPending || Number(totalAmount) === 0}
