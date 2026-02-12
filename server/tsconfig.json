@@ -9,10 +9,13 @@
     "strict": true,
     "resolveJsonModule": true,
     "outDir": "../dist/server",
-    "rootDir": ".",
+    "rootDir": "..",
+    "baseUrl": "..",
+    "paths": {
+      "@shared/*": ["shared/*"]
+    },
     "types": ["node"]
   },
-  "include": ["./**/*"],
+  "include": ["./**/*", "../shared/**/*"],
   "exclude": ["node_modules"]
 }
-
