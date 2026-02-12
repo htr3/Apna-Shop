@@ -19,6 +19,18 @@ import { db } from "./db";
 import { notificationSettings, notificationsLog, paymentSettings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
+// Helper: safely parse input that may be string | string[] | undefined into Date | undefined
+function parseRequestDate(val: unknown): Date | undefined {
+  if (!val) return undefined;
+  if (Array.isArray(val)) val = val[0];
+  if (typeof val === "string" && val.trim() !== "") {
+    const d = new Date(val);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  if (val instanceof Date && !Number.isNaN(val.getTime())) return val;
+  return undefined;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -623,12 +635,12 @@ export async function registerRoutes(
   // Add an expense
   app.post("/api/expenses/add", async (req, res) => {
     try {
-      const { category, amount, description, date, invoiceNumber, paymentMethod } = req.body;
+      const { category, amount, description, date } = req.body;
       const expense = await expenseService.addExpense({
         category,
         amount,
         description,
-        date: date ? new Date(date) : undefined,
+        date: parseRequestDate(date),
         invoiceNumber,
         paymentMethod,
       });
@@ -657,9 +669,13 @@ export async function registerRoutes(
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
 
+      const start = parseRequestDate(startDate);
+      const end = parseRequestDate(endDate);
+      if (!start || !end) return res.status(400).json({ message: "Invalid date format" });
+
       const expenses = await expenseService.getExpensesByDateRange(
-        new Date(startDate as string),
-        new Date(endDate as string)
+        start,
+        end
       );
       res.json(expenses);
     } catch (error) {
@@ -690,7 +706,7 @@ export async function registerRoutes(
   // Get daily expense summary
   app.get("/api/expenses/summary/daily", async (req, res) => {
     try {
-      const date = req.query.date ? new Date(req.query.date as string) : new Date();
+      const date = req.query.date ? parseRequestDate(req.query.date) ?? new Date() : new Date();
       const summary = await expenseService.getDailySummary(date);
       res.json(summary);
     } catch (error) {
@@ -1004,8 +1020,8 @@ export async function registerRoutes(
       }
 
       const report = await reportService.generateSalesReport(
-        new Date(startDate as string),
-        new Date(endDate as string)
+        parseRequestDate(startDate) as Date,
+        parseRequestDate(endDate) as Date
       );
       res.json(report);
     } catch (error) {
@@ -1032,8 +1048,8 @@ export async function registerRoutes(
       }
 
       const report = await reportService.generateExpenseReport(
-        new Date(startDate as string),
-        new Date(endDate as string)
+        parseRequestDate(startDate) as Date,
+        parseRequestDate(endDate) as Date
       );
       res.json(report);
     } catch (error) {
@@ -1050,8 +1066,8 @@ export async function registerRoutes(
       }
 
       const report = await reportService.generateFinancialReport(
-        new Date(startDate as string),
-        new Date(endDate as string)
+        parseRequestDate(startDate) as Date,
+        parseRequestDate(endDate) as Date
       );
       res.json(report);
     } catch (error) {
@@ -1105,10 +1121,8 @@ export async function registerRoutes(
   // Daily Summary - Get summary for specific date
   app.get("/api/daily-summary/:date", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const date = new Date(req.params.date);
-      if (isNaN(date.getTime())) {
-        return res.status(400).json({ message: "Invalid date format" });
-      }
+      const date = parseRequestDate(req.params.date);
+      if (!date) return res.status(400).json({ message: "Invalid date format" });
       const mobileNo = req.user!.mobileNo;
       const summary = await dailySummaryService.generateDailySummary(date, mobileNo);
       res.json(summary);
@@ -1194,7 +1208,7 @@ export async function registerRoutes(
         reference,
         upiId,
         payerName,
-        paymentDate: paymentDate ? new Date(paymentDate) : undefined,
+        paymentDate: parseRequestDate(paymentDate),
       });
 
       res.json(payment);
@@ -1216,7 +1230,7 @@ export async function registerRoutes(
         reference,
         upiId,
         payerName,
-        paymentDate: paymentDate ? new Date(paymentDate) : undefined,
+        paymentDate: parseRequestDate(paymentDate),
       });
 
       res.json(payment);
@@ -1268,8 +1282,8 @@ export async function registerRoutes(
       }
 
       const summary = await paymentService.getPaymentsSummary(
-        new Date(startDate as string),
-        new Date(endDate as string)
+        parseRequestDate(startDate) as Date,
+        parseRequestDate(endDate) as Date
       );
       res.json(summary);
     } catch (error) {
