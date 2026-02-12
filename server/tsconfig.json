@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "outDir": "../dist/server",
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["./**/*"],
+  "exclude": ["node_modules"]
+}
+
