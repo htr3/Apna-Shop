@@ -68,7 +68,7 @@ If you have any questions, please contact us.
       if (result.success) {
         await this.logNotification(
           0,
-          customerId,
+          customer.id,
           "WHATSAPP",
           "SENT",
           receiptMessage
