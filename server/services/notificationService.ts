@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { borrowings, customers, notificationsLog } from "../../shared/schema";
-import { eq, and, gte, isNull } from "drizzle-orm";
+import { eq, and, gte, isNull, lte } from "drizzle-orm";
 
 // WhatsApp-only Notification Service
 class NotificationService {

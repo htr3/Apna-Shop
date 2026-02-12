@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { expenses, sales } from "../../shared/schema";
-import { gte, lte, and } from "drizzle-orm";
+import { gte, lte, and, eq } from "drizzle-orm";
 
 export interface ExpenseSummary {
   period: string;
