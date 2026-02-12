@@ -27,7 +27,7 @@ class NotificationService {
    */
   async sendSaleReceipt(
     saleId: number,
-    customerId?: number | undefined,
+    customerId?: number,
     invoiceId?: number
   ): Promise<{ success: boolean; error?: string }> {
     try {
@@ -68,7 +68,7 @@ If you have any questions, please contact us.
       if (result.success) {
         await this.logNotification(
           0,
-          customerId ?? 0,
+          customerId,
           "WHATSAPP",
           "SENT",
           receiptMessage
@@ -184,7 +184,7 @@ If you have any questions, please contact us.
         and(
           eq(borrowings.status, "PENDING"),
           gte(borrowings.dueDate, today),
-          gte(reminderDate, borrowings.dueDate!)
+          lte(borrowings.dueDate, reminderDate)
         )
       );
 
@@ -238,4 +238,3 @@ If you have any questions, please contact us.
 }
 
 export const notificationService = new NotificationService();
-
