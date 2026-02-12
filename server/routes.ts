@@ -637,10 +637,13 @@ export async function registerRoutes(
   // Add an expense
   app.post("/api/expenses/add", async (req, res) => {
     try {
-      const { category, amount, description, date } = req.body;
+      const { category, amount, description, date, invoiceNumber, paymentMethod } = req.body;
+      if (!category || amount == null) {
+        return res.status(400).json({ message: "category and amount are required" });
+      }
       const expense = await expenseService.addExpense({
         category,
-        amount,
+        amount: Number(amount),
         description,
         date: parseRequestDate(date),
         invoiceNumber,
@@ -765,11 +768,15 @@ export async function registerRoutes(
   // Create new user
   app.post("/api/users/create", async (req, res) => {
     try {
-      const { username, email, role } = req.body;
-      const user = await userManagementService.createUser({ username, email, role });
+      const { username, password, email, mobileNo, role } = req.body;
+      if (!username || !password || !mobileNo || !role) {
+        return res.status(400).json({ message: "username, password, mobileNo and role are required"});
+      }
+      const user = await userManagementService.createUser({ username, password, email, mobileNo, role });
       res.status(201).json(user);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to create user" });
+    } catch (error: any) {
+      console.error("Create user error:", error);
+      res.status(500).json({ message: error?.message || "Failed to create user" });
     }
   });
 
@@ -1412,25 +1419,23 @@ export async function registerRoutes(
           settings: updated[0],
         });
       } else {
-        // Create new settings
-        const created = await db
-          .insert(paymentSettings)
-          .values({
-            ownerUpiId,
-            ownerUpiName,
-            ownerPhoneNumber,
-            bankName,
-            bankAccountNumber,
-            bankIfsc,
-            qrCodeUrl,
-            razorpayApiKey,
-            razorpayWebhookSecret,
-            enableUpi: enableUpi !== undefined ? enableUpi : true,
-            enableBankTransfer: enableBankTransfer !== undefined ? enableBankTransfer : false,
-            enableCard: enableCard !== undefined ? enableCard : false,
-            enableCash: enableCash !== undefined ? enableCash : true,
-          })
-          .returning();
+        // Create new settings (ensure mobileNo present)
+        const { insertWithMobile } = await import("./dbHelpers");
+        const created = await insertWithMobile(paymentSettings, {
+          ownerUpiId,
+          ownerUpiName,
+          ownerPhoneNumber,
+          bankName,
+          bankAccountNumber,
+          bankIfsc,
+          qrCodeUrl,
+          razorpayApiKey,
+          razorpayWebhookSecret,
+          enableUpi: enableUpi !== undefined ? enableUpi : true,
+          enableBankTransfer: enableBankTransfer !== undefined ? enableBankTransfer : false,
+          enableCard: enableCard !== undefined ? enableCard : false,
+          enableCash: enableCash !== undefined ? enableCash : true,
+        }).returning();
 
         res.status(201).json({
           success: true,

@@ -27,6 +27,7 @@ class InventoryService {
       const result = await db
         .insert(inventory)
         .values({
+          mobileNo: process.env.DEFAULT_MOBILE_NO ?? "0",
           name: data.name,
           sku: data.sku,
           quantity: data.quantity,
@@ -53,7 +54,12 @@ class InventoryService {
   }): Promise<any> {
     try {
       // Record transaction
+      const mobileNo =
+        (await db.query.inventory.findFirst({
+          where: (f, { eq }) => eq(f.id, data.itemId),
+        }))?.mobileNo ?? process.env.DEFAULT_MOBILE_NO ?? "0";
       await db.insert(inventoryTransactions).values({
+        mobileNo,
         itemId: data.itemId,
         type: data.type,
         quantity: data.quantity,

@@ -93,7 +93,13 @@ If you have any questions, please contact us.
     message: string
   ) {
     try {
+      const mobileNo =
+        (await db.query.customers.findFirst({
+          where: (f, { eq }) => eq(f.id, customerId),
+        }))?.mobileNo ?? process.env.DEFAULT_MOBILE_NO ?? "0";
+
       await db.insert(notificationsLog).values({
+        mobileNo,
         borrowingId,
         customerId,
         type,
@@ -163,7 +169,9 @@ If you have any questions, please contact us.
     const reminderDaysBefore = 1; // Default: send reminder 1 day before due date
 
     // Get all pending borrowings due within the next N days
-    const reminderDate = new Date(today.getTime() + reminderDaysBefore * 24 * 60 * 60 * 1000);
+    const reminderDate = new Date(
+      today.getTime() + reminderDaysBefore * 24 * 60 * 60 * 1000
+    );
 
     const upcomingBorrowings = await db
       .select({
@@ -207,8 +215,12 @@ If you have any questions, please contact us.
     try {
       const result = await this.sendWhatsAppMessage(recipient, message);
 
+      // Find mobileNo for tenant scoping
+      const mobileNo = (await db.query.customers.findFirst({ where: (f, { eq }) => eq(f.id, customerId) }))?.mobileNo ?? process.env.DEFAULT_MOBILE_NO ?? "0";
+
       // Log the notification
       await db.insert(notificationsLog).values({
+        mobileNo,
         borrowingId,
         customerId,
         type,

@@ -27,6 +27,7 @@ class SupplierService {
       const result = await db
         .insert(suppliers)
         .values({
+          mobileNo: process.env.DEFAULT_MOBILE_NO ?? "0",
           name: data.name,
           phone: data.phone,
           email: data.email,
@@ -89,10 +90,12 @@ class SupplierService {
       }
 
       // Record transaction
+      const mobileNo = supplier?.mobileNo ?? process.env.DEFAULT_MOBILE_NO ?? "0";
       await db.insert(supplierTransactions).values({
+        mobileNo,
         supplierId: data.supplierId,
         type: data.type,
-        amount: data.amount,
+        amount: data.amount.toString(),
         description: data.description,
         invoiceNumber: data.invoiceNumber,
         dueDate: data.dueDate,

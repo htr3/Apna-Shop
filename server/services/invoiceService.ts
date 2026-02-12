@@ -157,14 +157,17 @@ class InvoiceService {
       // For now, we'll store the HTML and create a data URL
       const dataUrl = `data:text/html;base64,${Buffer.from(invoiceHTML).toString("base64")}`;
 
+      const mobileNo = (customer?.mobileNo) ?? (sale?.mobileNo) ?? process.env.DEFAULT_MOBILE_NO ?? "0";
+
       // Save invoice to database
       const invoice = await db
         .insert(invoices)
         .values({
+          mobileNo,
           saleId: data.saleId,
           customerId: data.customerId,
           invoiceNumber,
-          amount: data.amount,
+          amount: data.amount.toString(),
           items: data.items ? JSON.stringify(data.items) : null,
           status: "PENDING",
           invoiceUrl: dataUrl,

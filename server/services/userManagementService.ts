@@ -205,7 +205,10 @@ class UserManagementService {
     changes?: any;
   }): Promise<void> {
     try {
+      const mobileNo = (await db.query.users.findFirst({ where: (f, { eq }) => eq(f.id, data.userId) }))?.mobileNo ?? process.env.DEFAULT_MOBILE_NO ?? "0";
+
       await db.insert(userActivityLog).values({
+        mobileNo,
         userId: data.userId,
         action: data.action,
         module: data.module,

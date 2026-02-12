@@ -23,13 +23,16 @@ class ExpenseService {
     date?: Date;
     invoiceNumber?: string;
     paymentMethod?: string;
+    mobileNo?: string;
   }): Promise<any> {
     try {
+      const mobileNo = data.mobileNo ?? process.env.DEFAULT_MOBILE_NO ?? "0";
       const result = await db
         .insert(expenses)
         .values({
+          mobileNo,
           category: data.category,
-          amount: data.amount,
+          amount: data.amount.toString(),
           description: data.description,
           date: data.date || new Date(),
           invoiceNumber: data.invoiceNumber,

@@ -51,7 +51,11 @@ class PaymentService {
       let remainingAmount = paymentData.amount;
 
       // Record the payment
+      // Ensure mobileNo is present (tenant identifier). Try to get from customer record.
+      const mobileNo = customer?.mobileNo ?? process.env.DEFAULT_MOBILE_NO ?? "0";
+
       const payment = await db.insert(payments).values({
+        mobileNo,
         customerId: paymentData.customerId,
         borrowingId: borrowingId,
         amount: paymentData.amount.toString(),
