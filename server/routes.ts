@@ -348,13 +348,15 @@ export async function registerRoutes(
           })
           .where(eq(notificationSettings.customerId, customerId));
       } else {
-        await db.insert(notificationSettings).values({
+        // Use helper to ensure mobileNo is included for tenant-scoped tables
+        const { insertWithMobile } = await import("./dbHelpers");
+        await insertWithMobile(notificationSettings, {
           customerId,
           whatsappEnabled: whatsappEnabled ?? true,
           smsEnabled: false,
           emailEnabled: false,
           reminderDaysBefore: reminderDaysBefore ?? 1,
-        });
+        }).returning();
       }
 
       res.json({ success: true, message: "Notification settings updated" });
