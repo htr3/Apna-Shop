@@ -17,7 +17,7 @@ class ExpenseService {
    * Add an expense
    */
   async addExpense(data: {
-    category: string;
+    category: "RENT" | "ELECTRICITY" | "SUPPLIER_PAYMENT" | "SALARIES" | "MAINTENANCE" | "SHIPPING" | "ADVERTISING" | "UTILITIES" | "OTHER";
     amount: number;
     description?: string;
     date?: Date;
@@ -36,7 +36,7 @@ class ExpenseService {
           description: data.description,
           date: data.date || new Date(),
           invoiceNumber: data.invoiceNumber,
-          paymentMethod: data.paymentMethod || "CASH",
+          paymentMethod: (data.paymentMethod ?? "CASH") as "CASH" | "CHECK" | "ONLINE",
         })
         .returning();
 
@@ -91,7 +91,7 @@ class ExpenseService {
   async getExpensesByCategory(category: string): Promise<any[]> {
     try {
       return await db.query.expenses.findMany({
-        where: (field, { eq }) => eq(field.category, category),
+        where: (field, { eq }) => eq(field.category, category as any),
       });
     } catch (error) {
       console.error("Failed to fetch expenses by category:", error);
@@ -106,7 +106,7 @@ class ExpenseService {
     try {
       const result = await db
         .delete(expenses)
-        .where((field) => field.id === expenseId)
+        .where(eq(expenses.id, expenseId))
         .returning();
 
       return result.length > 0;

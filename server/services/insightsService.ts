@@ -138,7 +138,7 @@ class InsightsService {
           data: {
             count: highBorrowersRaw.length,
             totalOutstanding: highBorrowersRaw.reduce(
-              (sum, c) => sum + parseFloat(c.borrowedAmount.toString()),
+              (sum, c) => sum + parseFloat((c.borrowedAmount ?? "0").toString()),
               0
             ),
           },

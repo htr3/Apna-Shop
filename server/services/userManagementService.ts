@@ -125,7 +125,7 @@ class UserManagementService {
           permissions: JSON.stringify(permissions),
           updatedAt: new Date(),
         })
-        .where((field) => field.id === userId)
+        .where(eq(users.id, userId))
         .returning();
 
       return result[0];
@@ -143,7 +143,7 @@ class UserManagementService {
       const result = await db
         .update(users)
         .set({ isActive: false, updatedAt: new Date() })
-        .where((field) => field.id === userId)
+        .where(eq(users.id, userId))
         .returning();
 
       return result.length > 0;
@@ -161,7 +161,7 @@ class UserManagementService {
       const result = await db
         .update(users)
         .set({ isActive: true, updatedAt: new Date() })
-        .where((field) => field.id === userId)
+        .where(eq(users.id, userId))
         .returning();
 
       return result.length > 0;

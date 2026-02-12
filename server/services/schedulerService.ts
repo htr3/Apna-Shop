@@ -101,7 +101,7 @@ class SchedulerService {
   stopAll(): void {
     console.log("Stopping all scheduled jobs...");
     this.jobs.forEach((interval, jobName) => {
-      clearInterval(interval);
+      clearInterval(interval as NodeJS.Timeout);
       console.log(`Stopped job '${jobName}'`);
     });
     this.jobs.clear();
@@ -113,7 +113,7 @@ class SchedulerService {
   stop(jobName: string): void {
     const interval = this.jobs.get(jobName);
     if (interval) {
-      clearInterval(interval);
+      clearInterval(interval as NodeJS.Timeout);
       this.jobs.delete(jobName);
       console.log(`Stopped job '${jobName}'`);
     }

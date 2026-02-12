@@ -57,7 +57,7 @@ class TrustScoreService {
       score -= overduePenalty;
 
       // Factor 3: Total purchase volume (20% weight)
-      const totalPurchase = parseFloat(customer.totalPurchase.toString());
+    const totalPurchased = parseFloat((customer.totalPurchase ?? "0").toString());
       let purchaseScore = 0;
 
       if (totalPurchase > 50000) {

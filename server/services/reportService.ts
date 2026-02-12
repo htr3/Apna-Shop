@@ -55,23 +55,23 @@ class ReportService {
       const customersData = await db.query.customers.findMany();
 
       const trustScoreDistribution = {
-        excellent: customersData.filter((c) => c.trustScore >= 80).length,
+        excellent: customersData.filter((c) => (c.trustScore ?? 0) >= 80).length,
         good: customersData.filter(
-          (c) => c.trustScore >= 60 && c.trustScore < 80
+          (c) => (c.trustScore ?? 0) >= 60 && (c.trustScore ?? 0) < 80
         ).length,
         fair: customersData.filter(
-          (c) => c.trustScore >= 40 && c.trustScore < 60
+          (c) => (c.trustScore ?? 0) >= 40 && (c.trustScore ?? 0) < 60
         ).length,
-        poor: customersData.filter((c) => c.trustScore < 40).length,
+        poor: customersData.filter((c) => (c.trustScore ?? 0) < 40).length,
       };
 
       const totalBorrowed = customersData.reduce(
-        (sum, c) => sum + parseFloat(c.borrowedAmount.toString()),
+        (sum, c) => sum + parseFloat((c.borrowedAmount ?? "0").toString()),
         0
       );
 
       const totalPurchased = customersData.reduce(
-        (sum, c) => sum + parseFloat(c.totalPurchase.toString()),
+        (sum, c) => sum + parseFloat((c.totalPurchase ?? "0").toString()),
         0
       );
 

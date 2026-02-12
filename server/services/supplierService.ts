@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { suppliers, supplierTransactions } from "../../shared/schema";
-import { eq, lte, gte } from "drizzle-orm";
+import { eq, lte, gte, or, and } from "drizzle-orm";
 
 export interface SupplierSummary {
   supplierId: number;
@@ -124,7 +124,7 @@ class SupplierService {
           totalPurchased: newPurchased.toString(),
           updatedAt: new Date(),
         })
-        .where((field) => field.id === data.supplierId)
+        .where(eq(suppliers.id, data.supplierId))
         .returning();
 
       return updated[0];
@@ -252,7 +252,7 @@ class SupplierService {
           ...(data.paymentTerms && { paymentTerms: data.paymentTerms }),
           updatedAt: new Date(),
         })
-        .where((field) => field.id === supplierId)
+        .where(eq(suppliers.id, supplierId))
         .returning();
 
       return result[0];
@@ -270,7 +270,7 @@ class SupplierService {
       const result = await db
         .update(suppliers)
         .set({ isActive: false, updatedAt: new Date() })
-        .where((field) => field.id === supplierId)
+        .where(eq(suppliers.id, supplierId))
         .returning();
 
       return result.length > 0;

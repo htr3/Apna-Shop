@@ -27,7 +27,7 @@ class NotificationService {
    */
   async sendSaleReceipt(
     saleId: number,
-    customerId?: number,
+    customerId?: number | undefined,
     invoiceId?: number
   ): Promise<{ success: boolean; error?: string }> {
     try {
@@ -68,7 +68,7 @@ If you have any questions, please contact us.
       if (result.success) {
         await this.logNotification(
           0,
-          customerId,
+          customerId ?? 0,
           "WHATSAPP",
           "SENT",
           receiptMessage
@@ -184,7 +184,7 @@ If you have any questions, please contact us.
         and(
           eq(borrowings.status, "PENDING"),
           gte(borrowings.dueDate, today),
-          gte(reminderDate, borrowings.dueDate)
+          gte(reminderDate, borrowings.dueDate!)
         )
       );
 

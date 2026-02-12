@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { inventory, inventoryTransactions } from "../../shared/schema";
-import { eq, lte, gte } from "drizzle-orm";
+import { eq, lte, gte, and } from "drizzle-orm";
 
 export interface InventoryPrediction {
   itemId: number;
@@ -75,7 +75,7 @@ class InventoryService {
         throw new Error("Inventory item not found");
       }
 
-      let newQuantity = item.quantity;
+      let newQuantity = item.quantity ?? 0;
       if (data.type === "SALE") {
         newQuantity -= data.quantity;
       } else if (data.type === "RESTOCK") {
@@ -93,7 +93,7 @@ class InventoryService {
           updatedAt: new Date(),
           ...(data.type === "RESTOCK" && { lastRestockDate: new Date() }),
         })
-        .where((field) => field.id === data.itemId)
+        .where(eq(inventory.id, data.itemId))
         .returning();
 
       return updated[0];
@@ -113,11 +113,11 @@ class InventoryService {
       );
 
       const transactions = await db.query.inventoryTransactions.findMany({
-        where: (field, { and, eq, gte, lte }) =>
-          and(
-            eq(field.itemId, itemId),
-            eq(field.type, "SALE"),
-            gte(field.createdAt, thirtyDaysAgo)
+        where: (field, { and: andOp, eq: eqOp, gte: gteOp }) =>
+          andOp(
+            eqOp(field.itemId, itemId),
+            eqOp(field.type, "SALE"),
+            gteOp(field.createdAt, thirtyDaysAgo)
           ),
       });
 
@@ -154,12 +154,13 @@ class InventoryService {
       await db
         .update(inventory)
         .set({ avgDailySales: avgDailySales.toString() })
-        .where((field) => field.id === itemId);
+        .where(eq(inventory.id, itemId));
 
       // Calculate days until stockout
+      const currentQuantity = item.quantity ?? 0;
       const daysUntilStockout =
         avgDailySales > 0
-          ? Math.floor(item.quantity / avgDailySales)
+          ? Math.floor(currentQuantity / avgDailySales)
           : 999;
 
       // Calculate predicted runout date
@@ -168,8 +169,9 @@ class InventoryService {
       );
 
       // Determine urgency
+      const minThreshold = item.minThreshold ?? 10;
       let urgency: "normal" | "warning" | "critical" = "normal";
-      if (item.quantity <= item.minThreshold) {
+      if (currentQuantity <= minThreshold) {
         urgency = "critical";
       } else if (daysUntilStockout <= 7) {
         urgency = "warning";
@@ -180,7 +182,7 @@ class InventoryService {
       return {
         itemId: item.id,
         itemName: item.name,
-        currentStock: item.quantity,
+        currentStock: currentQuantity,
         avgDailySales: Math.round(avgDailySales * 100) / 100,
         daysUntilStockout,
         predictedRunoutDate,
@@ -210,7 +212,7 @@ class InventoryService {
 
       return predictions.sort((a, b) => {
         // Sort by urgency (critical > warning > normal)
-        const urgencyOrder = { critical: 0, warning: 1, normal: 2 };
+        const urgencyOrder: Record<"normal" | "warning" | "critical", number> = { critical: 0, warning: 1, normal: 2 };
         if (urgencyOrder[a.urgency] !== urgencyOrder[b.urgency]) {
           return urgencyOrder[a.urgency] - urgencyOrder[b.urgency];
         }
@@ -258,7 +260,7 @@ class InventoryService {
           ...(data.minThreshold !== undefined && { minThreshold: data.minThreshold }),
           updatedAt: new Date(),
         })
-        .where((field) => field.id === itemId)
+        .where(eq(inventory.id, itemId))
         .returning();
 
       return result[0];

@@ -187,9 +187,9 @@ export class MemStorage implements IStorage {
       customerId: borrowing.customerId,
       amount: borrowing.amount,
       date: borrowing.date || new Date(),
-      dueDate: borrowing.dueDate,
+      dueDate: borrowing.dueDate ?? null,
       status: borrowing.status || "PENDING",
-      notes: borrowing.notes,
+      notes: borrowing.notes ?? null,
     };
     this.borrowings.set(id, record);
     return record;
@@ -219,8 +219,8 @@ export class MemStorage implements IStorage {
       pendingAmount: insertSale.pendingAmount || "0",
       date: insertSale.date || new Date(),
       paymentMethod: insertSale.paymentMethod || "CASH",
-      customerId: insertSale.customerId,
-      createdByUserId: insertSale.createdByUserId,
+      customerId: insertSale.customerId ?? null,
+      createdByUserId: insertSale.createdByUserId ?? null,
     };
     this.sales.set(id, sale);
     return sale;

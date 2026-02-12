@@ -138,7 +138,7 @@ class InvoiceService {
 
       const customer = data.customerId
         ? await db.query.customers.findFirst({
-            where: (field, { eq }) => eq(field.id, data.customerId),
+            where: (field, { eq }) => eq(field.id, data.customerId!),
           })
         : undefined;
 
