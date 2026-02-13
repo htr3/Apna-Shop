@@ -1,5 +1,5 @@
-import { db } from "../db";
-import { invoices, sales, customers } from "../../shared/schema";
+import { db } from "../db.js";
+import { invoices, sales, customers } from "../../shared/schema.js";
 import { eq, and } from "drizzle-orm";
 
 interface InvoiceItem {

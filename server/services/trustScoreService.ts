@@ -1,5 +1,5 @@
-import { db } from "../db";
-import { customers, borrowings, sales } from "../../shared/schema";
+import { db } from "../db.js";
+import { customers, borrowings, sales } from "../../shared/schema.js";
 import { eq, and, gte } from "drizzle-orm";
 
 class TrustScoreService {

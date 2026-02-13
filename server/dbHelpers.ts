@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db } from "./db.js";
 
 // Insert helper that ensures mobileNo is present and relaxes strict insert typing by casting to any.
 // Use when inserting tenant-scoped tables where `mobileNo` must be provided but the caller may not have it.

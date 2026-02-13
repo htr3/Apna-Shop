@@ -1,5 +1,5 @@
-import { db } from "../db";
-import { borrowings, customers, notificationsLog } from "../../shared/schema";
+import { db } from "../db.js";
+import { borrowings, customers, notificationsLog } from "../../shared/schema.js";
 import { eq, and, gte, isNull, lte } from "drizzle-orm";
 
 // WhatsApp-only Notification Service
@@ -32,7 +32,7 @@ class NotificationService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Get customer details if available
-      let customer = undefined;
+      let customer: any = undefined;
       if (customerId) {
         customer = await db.query.customers.findFirst({
           where: (field, { eq }) => eq(field.id, customerId),
@@ -44,7 +44,7 @@ class NotificationService {
       }
 
       // Get invoice if available
-      let invoice;
+      let invoice: any;
       if (invoiceId) {
         invoice = await db.query.invoices.findFirst({
           where: (field, { eq }) => eq(field.id, invoiceId),
@@ -61,14 +61,14 @@ If you have any questions, please contact us.
       `.trim();
 
       const result = await this.sendWhatsAppMessage(
-        customer.phone,
+        (customer as any).phone,
         receiptMessage
       );
 
       if (result.success) {
         await this.logNotification(
           0,
-          customer.id,
+          (customer as any).id,
           "WHATSAPP",
           "SENT",
           receiptMessage

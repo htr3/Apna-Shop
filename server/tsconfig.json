@@ -1,16 +1,16 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "strict": true,
-    "noImplicitAny": true,
+    "noImplicitAny": false,
     "strictNullChecks": true,
     "resolveJsonModule": true,
-    "outDir": "../dist/server",
+    "outDir": "../dist",
     "rootDir": "..",
     "baseUrl": "..",
     "paths": {
@@ -19,5 +19,5 @@
     "types": ["node"]
   },
   "include": ["./**/*", "../shared/**/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "./vite.ts"]
 }

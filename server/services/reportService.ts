@@ -1,5 +1,5 @@
-import { db } from "../db";
-import { sales, customers, expenses, borrowings } from "../../shared/schema";
+import { db } from "../db.js";
+import { sales, customers, expenses, borrowings } from "../../shared/schema.js";
 import { gte, lte, and } from "drizzle-orm";
 
 class ReportService {
@@ -9,7 +9,7 @@ class ReportService {
   async generateSalesReport(startDate: Date, endDate: Date): Promise<any> {
     try {
       const salesData = await db.query.sales.findMany({
-        where: (field, { and, gte, lte }) =>
+        where: (field: any, { and, gte, lte }: any) =>
           and(
             gte(field.date, startDate),
             lte(field.date, endDate)
@@ -17,20 +17,20 @@ class ReportService {
       });
 
       const totalSales = salesData.reduce(
-        (sum, s) => sum + parseFloat(s.amount.toString()),
+        (sum: number, s: any) => sum + parseFloat(s.amount.toString()),
         0
       );
 
       const paymentBreakdown = {
         cash: salesData
-          .filter((s) => s.paymentMethod === "CASH")
-          .reduce((sum, s) => sum + parseFloat(s.amount.toString()), 0),
+          .filter((s: any) => s.paymentMethod === "CASH")
+          .reduce((sum: number, s: any) => sum + parseFloat(s.amount.toString()), 0),
         online: salesData
-          .filter((s) => s.paymentMethod === "ONLINE")
-          .reduce((sum, s) => sum + parseFloat(s.amount.toString()), 0),
+          .filter((s: any) => s.paymentMethod === "ONLINE")
+          .reduce((sum: number, s: any) => sum + parseFloat(s.amount.toString()), 0),
         credit: salesData
-          .filter((s) => s.paymentMethod === "CREDIT")
-          .reduce((sum, s) => sum + parseFloat(s.amount.toString()), 0),
+          .filter((s: any) => s.paymentMethod === "CREDIT")
+          .reduce((sum: number, s: any) => sum + parseFloat(s.amount.toString()), 0),
       };
 
       return {

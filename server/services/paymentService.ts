@@ -1,5 +1,5 @@
-import { db } from "../db";
-import { payments, borrowings, customers } from "../../shared/schema";
+import { db } from "../db.js";
+import { payments, borrowings, customers } from "../../shared/schema.js";
 import { eq, and, lte, gte } from "drizzle-orm";
 
 interface UPIPaymentData {
@@ -204,7 +204,7 @@ class PaymentService {
   ): Promise<void> {
     try {
       // Import notificationService dynamically to avoid circular dependency
-      const { notificationService } = await import("./notificationService");
+      const { notificationService } = await import("./notificationService.js");
 
       const message = `Dear ${customerName}, we have received your payment of ₹${amount} via UPI. Thank you for your prompt payment. Your balance has been updated.`;
 

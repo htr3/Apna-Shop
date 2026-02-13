@@ -1,4 +1,4 @@
-import { notificationService } from "./notificationService";
+import { notificationService } from "./notificationService.js";
 
 /**
  * Job Scheduler Service

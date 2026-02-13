@@ -1,5 +1,5 @@
-import { db } from "../db";
-import { suppliers, supplierTransactions } from "../../shared/schema";
+import { db } from "../db.js";
+import { suppliers, supplierTransactions } from "../../shared/schema.js";
 import { eq, lte, gte, or, and } from "drizzle-orm";
 
 export interface SupplierSummary {

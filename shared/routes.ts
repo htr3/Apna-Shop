@@ -11,7 +11,7 @@ import {
   products,
   loginSchema,
   signupSchema
-} from './schema';
+} from './schema.js';
 
 export const errorSchemas = {
   validation: z.object({

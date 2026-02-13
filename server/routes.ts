@@ -1,22 +1,22 @@
 import type { Express } from "express";
 import type { Server } from "http";
-import { storage } from "./storage";
-import { api } from "@shared/routes";
+import { storage } from "./storage.js";
+import { api } from "../shared/routes.js";
 import { z } from "zod";
-import { notificationService } from "./services/notificationService";
-import { invoiceService } from "./services/invoiceService";
-import { insightsService } from "./services/insightsService";
-import { inventoryService } from "./services/inventoryService";
-import { trustScoreService } from "./services/trustScoreService";
-import { expenseService } from "./services/expenseService";
-import { generateToken, authenticateToken, AuthRequest } from "./middleware/auth";  // ✨ NEW
-import { userManagementService } from "./services/userManagementService";
-import { supplierService } from "./services/supplierService";
-import { reportService } from "./services/reportService";
-import { dailySummaryService } from "./services/dailySummaryService";
-import { paymentService } from "./services/paymentService";
-import { db } from "./db";
-import { notificationSettings, notificationsLog, paymentSettings } from "@shared/schema";
+import { notificationService } from "./services/notificationService.js";
+import { invoiceService } from "./services/invoiceService.js";
+import { insightsService } from "./services/insightsService.js";
+import { inventoryService } from "./services/inventoryService.js";
+import { trustScoreService } from "./services/trustScoreService.js";
+import { expenseService } from "./services/expenseService.js";
+import { generateToken, authenticateToken, AuthRequest } from "./middleware/auth.js";  // ✨ NEW
+import { userManagementService } from "./services/userManagementService.js";
+import { supplierService } from "./services/supplierService.js";
+import { reportService } from "./services/reportService.js";
+import { dailySummaryService } from "./services/dailySummaryService.js";
+import { paymentService } from "./services/paymentService.js";
+import { db } from "./db.js";
+import { notificationSettings, notificationsLog, paymentSettings, users } from "../shared/schema.js";
 import { eq } from "drizzle-orm";
 
 // Helper: safely parse input that may be string | string[] | undefined into Date | undefined
@@ -49,7 +49,7 @@ export async function registerRoutes(
 
       // Check if user exists in database
       const user = await db.query.users.findFirst({
-        where: (field, { eq }) => eq(field.username, username),
+        where: eq(users.username, username),
       });
 
       if (!user) {
@@ -357,7 +357,7 @@ export async function registerRoutes(
   app.get("/api/notifications/settings/:customerId", async (req, res) => {
     try {
       const settings = await db.query.notificationSettings.findFirst({
-        where: (field, { eq }) => eq(field.customerId, Number(req.params.customerId)),
+        where: eq(notificationSettings.customerId, Number(req.params.customerId)),
       });
       res.json(settings || { customerId: Number(req.params.customerId) });
     } catch (error) {
@@ -371,7 +371,7 @@ export async function registerRoutes(
       const { customerId, whatsappEnabled, reminderDaysBefore } = req.body;
 
       const existing = await db.query.notificationSettings.findFirst({
-        where: (field, { eq }) => eq(field.customerId, customerId),
+        where: eq(notificationSettings.customerId, customerId),
       });
 
       if (existing) {
@@ -384,7 +384,7 @@ export async function registerRoutes(
           .where(eq(notificationSettings.customerId, customerId));
       } else {
         // Use helper to ensure mobileNo is included for tenant-scoped tables
-        const { insertWithMobile } = await import("./dbHelpers");
+        const { insertWithMobile } = await import("./dbHelpers.js");
         await insertWithMobile(notificationSettings, {
           customerId,
           whatsappEnabled: whatsappEnabled ?? true,
@@ -404,7 +404,7 @@ export async function registerRoutes(
   app.get("/api/notifications/logs/:customerId", async (req, res) => {
     try {
       const logs = await db.query.notificationsLog.findMany({
-        where: (field, { eq }) => eq(field.customerId, Number(req.params.customerId)),
+        where: eq(notificationSettings.customerId, Number(req.params.customerId)),
       });
       res.json(logs);
     } catch (error) {
@@ -1455,7 +1455,7 @@ export async function registerRoutes(
         });
       } else {
         // Create new settings (ensure mobileNo present)
-        const { insertWithMobile } = await import("./dbHelpers");
+        const { insertWithMobile } = await import("./dbHelpers.js");
         const created = await insertWithMobile(paymentSettings, {
           ownerUpiId,
           ownerUpiName,

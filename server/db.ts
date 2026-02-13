@@ -1,32 +1,46 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import * as schema from "@shared/schema";
+import * as schema from "../shared/schema.js";
 import { eq } from "drizzle-orm";
 
 const { Pool } = pg;
 
-// Ideally we'd throw if DATABASE_URL is missing, but for this mock-data phase
-// we'll allow it to be undefined and just not use the db connection if so.
-// However, the tool create_postgresql_database_tool will set it.
+let pool: pg.Pool;
 
-if (!process.env.DATABASE_URL) {
-  console.warn("DATABASE_URL is not set. The application will run in memory-only mode.");
+if (process.env.NODE_ENV === 'production' && process.env.CLOUD_SQL_CONNECTION_NAME) {
+  // Production on Google Cloud Run with Cloud SQL
+  console.log("Connecting to Google Cloud SQL via Unix socket...");
+  pool = new Pool({
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    host: `/cloudsql/${process.env.CLOUD_SQL_CONNECTION_NAME}`,
+  });
+} else if (process.env.DATABASE_URL) {
+  // Local development or other environments using a connection string
+  console.log("Connecting to PostgreSQL via DATABASE_URL...");
+  pool = new Pool({ connectionString: process.env.DATABASE_URL });
+} else {
+  console.warn("No database configuration found. Application might not work correctly without a database.");
+  // Create a dummy pool to avoid crashing on startup. Operations will fail at runtime.
+  pool = new Pool();
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export { pool };
 export const db = drizzle(pool, { schema });
 
 // Seed default users (Owner + Staff)
 export async function seedUsers() {
   try {
-    if (!process.env.DATABASE_URL) {
-      console.log("Skipping user seeding: DATABASE_URL not set");
+    const isDbConfigured = process.env.DATABASE_URL || process.env.CLOUD_SQL_CONNECTION_NAME;
+    if (!isDbConfigured) {
+      console.log("Skipping user seeding: No database configured.");
       return;
     }
 
     // Check if owner already exists
     const existingOwner = await db.query.users.findFirst({
-      where: (field, { eq }) => eq(field.username, "owner"),
+      where: eq(schema.users.username, "owner"),
     });
 
     if (existingOwner) {

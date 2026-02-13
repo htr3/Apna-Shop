@@ -1,5 +1,5 @@
-import { db } from "../db";
-import { sales, customers, borrowings } from "../../shared/schema";
+import { db } from "../db.js";
+import { sales, customers, borrowings } from "../../shared/schema.js";
 import { eq, and, gte, lte } from "drizzle-orm";
 
 export interface BusinessInsight {
@@ -46,11 +46,11 @@ class InsightsService {
         );
 
       const thisWeekTotal = thisWeekSales.reduce(
-        (sum, s) => sum + parseFloat(s.amount.toString()),
+        (sum: number, s: any) => sum + parseFloat(s.amount.toString()),
         0
       );
       const lastWeekTotal = lastWeekSales.reduce(
-        (sum, s) => sum + parseFloat(s.amount.toString()),
+        (sum: number, s: any) => sum + parseFloat(s.amount.toString()),
         0
       );
 
@@ -113,7 +113,7 @@ class InsightsService {
           recommendation: "Review their payment history and consider reducing credit limits.",
           data: {
             count: riskyCustomers.length,
-            customers: riskyCustomers.map((c) => ({
+            customers: riskyCustomers.map((c: any) => ({
               id: c.id,
               name: c.name,
               trustScore: c.trustScore,
@@ -138,7 +138,7 @@ class InsightsService {
           data: {
             count: highBorrowersRaw.length,
             totalOutstanding: highBorrowersRaw.reduce(
-              (sum, c) => sum + parseFloat((c.borrowedAmount ?? "0").toString()),
+              (sum: number, c: any) => sum + parseFloat((c.borrowedAmount ?? "0").toString()),
               0
             ),
           },
@@ -189,7 +189,7 @@ class InsightsService {
           data: {
             count: overdueBorrowings.length,
             totalOverdue,
-            customers: overdueBorrowings.map((b) => ({
+            customers: overdueBorrowings.map((b: any) => ({
               name: b.customer.name,
               amount: b.borrowing.amount,
               daysOverdue: Math.floor(

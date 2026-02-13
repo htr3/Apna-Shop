@@ -1,5 +1,5 @@
-import { db } from "../db";
-import { expenses, sales } from "../../shared/schema";
+import { db } from "../db.js";
+import { expenses, sales } from "../../shared/schema.js";
 import { gte, lte, and, eq } from "drizzle-orm";
 
 export interface ExpenseSummary {
@@ -73,10 +73,9 @@ class ExpenseService {
   async getExpensesByDateRange(startDate: Date, endDate: Date): Promise<any[]> {
     try {
       return await db.query.expenses.findMany({
-        where: (field, { and, gte, lte }) =>
-          and(
-            gte(field.date, startDate),
-            lte(field.date, endDate)
+        where: and(
+            gte(expenses.date, startDate),
+            lte(expenses.date, endDate)
           ),
       });
     } catch (error) {
@@ -169,10 +168,9 @@ class ExpenseService {
     try {
       // Get sales for the period
       const salesData = await db.query.sales.findMany({
-        where: (field, { and, gte, lte }) =>
-          and(
-            gte(field.date, startDate),
-            lte(field.date, endDate)
+        where: and(
+            gte(expenses.date, startDate),
+            lte(expenses.date, endDate)
           ),
       });
 

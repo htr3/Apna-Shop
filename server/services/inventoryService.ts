@@ -1,5 +1,5 @@
-import { db } from "../db";
-import { inventory, inventoryTransactions } from "../../shared/schema";
+import { db } from "../db.js";
+import { inventory, inventoryTransactions } from "../../shared/schema.js";
 import { eq, lte, gte, and } from "drizzle-orm";
 
 export interface InventoryPrediction {
@@ -56,7 +56,7 @@ class InventoryService {
       // Record transaction
       const mobileNo =
         (await db.query.inventory.findFirst({
-          where: (f, { eq }) => eq(f.id, data.itemId),
+          where: (f: any, { eq }: any) => eq(f.id, data.itemId),
         }))?.mobileNo ?? process.env.DEFAULT_MOBILE_NO ?? "0";
       await db.insert(inventoryTransactions).values({
         mobileNo,

@@ -1,10 +1,10 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { serveStatic } from "./static";
+import { registerRoutes } from "./routes.js";
+import { serveStatic } from "./static.js";
 import { createServer } from "http";
-import { schedulerService } from "./services/schedulerService";
-import { seedUsers } from "./db";
+import { schedulerService } from "./services/schedulerService.js";
+import { seedUsers } from "./db.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -63,8 +63,12 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await seedUsers();
-  await registerRoutes(httpServer, app);
+  try {
+    await seedUsers();
+    await registerRoutes(httpServer, app);
+  } catch (error) {
+    console.error("Error during startup initialization:", error);
+  }
 
   // Start scheduled jobs for reminders
   schedulerService.startAll();
@@ -88,23 +92,22 @@ app.use((req, res, next) => {
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
-    const { setupVite } = await import("./vite");
+    const { setupVite } = await import("./vite.js");
     await setupVite(httpServer, app);
   }
-
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "127.0.0.1",
-      reusePort: false,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
 })();
+
+// ALWAYS serve the app on the port specified in the environment variable PORT
+// Other ports are firewalled. Default to 5000 if not specified.
+// this serves both the API and the client.
+// It is the only port that is not firewalled.
+const port = parseInt(process.env.PORT || "8080", 10);
+httpServer.listen(
+  {
+    port,
+    host: "0.0.0.0",
+  },
+  () => {
+    log(`serving on port ${port}`);
+  },
+);

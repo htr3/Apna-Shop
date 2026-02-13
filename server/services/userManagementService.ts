@@ -1,6 +1,6 @@
-import { db } from "../db";
-import { users, userActivityLog } from "../../shared/schema";
-import { rolePermissions, UserRole } from "../../shared/schema";
+import { db } from "../db.js";
+import { users, userActivityLog } from "../../shared/schema.js";
+import { rolePermissions, UserRole } from "../../shared/schema.js";
 import { eq } from "drizzle-orm";
 
 class UserManagementService {

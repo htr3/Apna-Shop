@@ -5,8 +5,8 @@ import {
   type Sale, type InsertSale,
   type Product, type InsertProduct,
   type DashboardStats
-} from "@shared/schema";
-import { db } from "./db";
+} from "../shared/schema.js";
+import { db } from "./db.js";
 import { eq, and, gte } from "drizzle-orm"
 
 export interface IStorage {
@@ -434,7 +434,6 @@ export class DbStorage implements IStorage {
   }
 
   async getSales(mobileNo?: string): Promise<(Sale & { createdByUserName?: string; customerName?: string })[]> {
-    const { users, customers } = await import("@shared/schema");
     const salesList = await db.query.sales.findMany({
       where: mobileNo ? (field, { eq }) => eq(field.mobileNo, mobileNo) : undefined,
     });
@@ -525,7 +524,7 @@ export class DbStorage implements IStorage {
 
           // Import trustScoreService dynamically to avoid circular dependency
           try {
-            const { trustScoreService } = await import("./services/trustScoreService");
+            const { trustScoreService } = await import("./services/trustScoreService.js");
             await trustScoreService.updateCustomerTrustScore(customerId);
           } catch (error) {
             console.error("Failed to update trust score:", error);
@@ -533,14 +532,14 @@ export class DbStorage implements IStorage {
 
           // Automatically create invoice and send receipt
           try {
-            const { invoiceService } = await import("./services/invoiceService");
+            const { invoiceService } = await import("./services/invoiceService.js");
             const invoice = await invoiceService.createInvoice({
               saleId: newSale.id,
               customerId,
               amount: Number(newSale.amount),
             });
 
-            const { notificationService } = await import("./services/notificationService");
+            const { notificationService } = await import("./services/notificationService.js");
             await notificationService.sendSaleReceipt(
               newSale.id,
               customerId,

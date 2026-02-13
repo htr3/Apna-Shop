@@ -1,7 +1,7 @@
-import { db } from "../db";
-import { sales, borrowings, expenses } from "../../shared/schema";
-import { gte, lte, and } from "drizzle-orm";
-import { notificationService } from "./notificationService";
+import { db } from "../db.js";
+import { sales, borrowings, expenses } from "../../shared/schema.js";
+import { gte, lte, and, eq } from "drizzle-orm";
+import { notificationService } from "./notificationService.js";
 
 interface DailySummary {
   date: Date;
@@ -27,92 +27,67 @@ class DailySummaryService {
     try {
       // Get daily sales (filtered by mobileNo if provided)
       const dailySales = await db.query.sales.findMany({
-        where: (field, { and, gte, lte, eq }) => {
-          const conditions = [
-            gte(field.date, startOfDay),
-            lte(field.date, endOfDay)
-          ];
-          if (mobileNo) {
-            conditions.push(eq(field.mobileNo, mobileNo));
-          }
-          return and(...conditions);
-        },
+        where: and(
+          gte(sales.date, startOfDay),
+          lte(sales.date, endOfDay),
+          mobileNo ? eq(sales.mobileNo, mobileNo) : undefined
+        ),
       });
 
       const totalSales = dailySales.reduce(
-        (sum, s) => sum + parseFloat(s.amount.toString()),
+        (sum: number, s: any) => sum + parseFloat(s.amount.toString()),
         0
       );
 
       // Get daily expenses (filtered by mobileNo if provided)
       const dailyExpenses = await db.query.expenses.findMany({
-        where: (field, { and, gte, lte, eq }) => {
-          const conditions = [
-            gte(field.date, startOfDay),
-            lte(field.date, endOfDay)
-          ];
-          if (mobileNo) {
-            conditions.push(eq(field.mobileNo, mobileNo));
-          }
-          return and(...conditions);
-        },
+        where: and(
+          gte(sales.date, startOfDay),
+          lte(sales.date, endOfDay),
+          mobileNo ? eq(sales.mobileNo, mobileNo) : undefined
+        ),
       });
 
       const totalExpenses = dailyExpenses.reduce(
-        (sum, e) => sum + parseFloat(e.amount.toString()),
+        (sum: number, e: any) => sum + parseFloat(e.amount.toString()),
         0
       );
 
       // Get new borrowings (filtered by mobileNo if provided)
       const newBorrowings = await db.query.borrowings.findMany({
-        where: (field, { and, gte, lte, eq }) => {
-          const conditions = [
-            gte(field.date, startOfDay),
-            lte(field.date, endOfDay),
-            eq(field.status, "PENDING")
-          ];
-          if (mobileNo) {
-            conditions.push(eq(field.mobileNo, mobileNo));
-          }
-          return and(...conditions);
-        },
+        where: and(
+          gte(borrowings.date, startOfDay),
+          lte(borrowings.date, endOfDay),
+          eq(borrowings.status, "PENDING"),
+          mobileNo ? eq(borrowings.mobileNo, mobileNo) : undefined
+        ),
       });
 
       const totalNewBorrowings = newBorrowings.length;
 
       // Get paid borrowings (collections) (filtered by mobileNo if provided)
       const paidBorrowings = await db.query.borrowings.findMany({
-        where: (field, { and, gte, lte, eq }) => {
-          const conditions = [
-            gte(field.date, startOfDay),
-            lte(field.date, endOfDay),
-            eq(field.status, "PAID")
-          ];
-          if (mobileNo) {
-            conditions.push(eq(field.mobileNo, mobileNo));
-          }
-          return and(...conditions);
-        },
+        where: and(
+          gte(borrowings.date, startOfDay),
+          lte(borrowings.date, endOfDay),
+          eq(borrowings.status, "PAID"),
+          mobileNo ? eq(borrowings.mobileNo, mobileNo) : undefined
+        ),
       });
 
       const totalCollections = paidBorrowings.reduce(
-        (sum, b) => sum + parseFloat(b.amount.toString()),
+        (sum: number, b: any) => sum + parseFloat(b.amount.toString()),
         0
       );
 
       // Get overdue borrowings (filtered by mobileNo if provided)
       const now = new Date();
       const overdueBorrowings = await db.query.borrowings.findMany({
-        where: (field, { eq, lte, and: andOp }) => {
-          const conditions = [
-            eq(field.status, "OVERDUE"),
-            lte(field.dueDate, now)
-          ];
-          if (mobileNo) {
-            conditions.push(eq(field.mobileNo, mobileNo));
-          }
-          return andOp(...conditions);
-        },
+        where: and(
+          eq(borrowings.status, "OVERDUE"),
+          lte(borrowings.dueDate, now),
+          mobileNo ? eq(borrowings.mobileNo, mobileNo) : undefined
+        )
       });
 
       const netProfit = totalSales - totalExpenses;
@@ -251,7 +226,7 @@ Generated: ${new Date().toLocaleTimeString()}
    * Get weekly summary (7-day report) (with optional tenant filtering)
    */
   async getWeeklySummary(mobileNo?: string): Promise<any> {
-    const summaries = [];
+    const summaries: any[] = [];
     const now = new Date();
 
     for (let i = 6; i >= 0; i--) {
@@ -261,21 +236,21 @@ Generated: ${new Date().toLocaleTimeString()}
       summaries.push(summary);
     }
 
-    const totalWeeklySales = summaries.reduce((sum, s) => sum + s.totalSales, 0);
-    const totalWeeklyExpenses = summaries.reduce((sum, s) => sum + s.totalExpenses, 0);
-    const totalWeeklyProfit = summaries.reduce((sum, s) => sum + s.netProfit, 0);
-    const totalWeeklyCollections = summaries.reduce((sum, s) => sum + s.collectionsMade, 0);
+    const totalWeeklySales = summaries.reduce((sum: number, s: any) => sum + s.totalSales, 0);
+    const totalWeeklyExpenses = summaries.reduce((sum: number, s: any) => sum + s.totalExpenses, 0);
+    const totalWeeklyProfit = summaries.reduce((sum: number, s: any) => sum + s.netProfit, 0);
+    const totalWeeklyCollections = summaries.reduce((sum: number, s: any) => sum + s.collectionsMade, 0);
 
     return {
-      week: `${summaries[0].date.toLocaleDateString()} - ${summaries[6].date.toLocaleDateString()}`,
+      week: `${(summaries[0] as any).date.toLocaleDateString()} - ${(summaries[6] as any).date.toLocaleDateString()}`,
       dailySummaries: summaries,
       totalSales: totalWeeklySales,
       totalExpenses: totalWeeklyExpenses,
       totalProfit: totalWeeklyProfit,
       totalCollections: totalWeeklyCollections,
       averageDailySales: totalWeeklySales / 7,
-      bestDay: summaries.reduce((max, s) => (s.totalSales > max.totalSales ? s : max)),
-      worstDay: summaries.reduce((min, s) => (s.totalSales < min.totalSales ? s : min)),
+      bestDay: summaries.reduce((max: any, s: any) => (s.totalSales > max.totalSales ? s : max)),
+      worstDay: summaries.reduce((min: any, s: any) => (s.totalSales < min.totalSales ? s : min)),
     };
   }
 }
