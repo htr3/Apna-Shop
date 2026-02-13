@@ -141,6 +141,24 @@ export const api = {
         201: z.custom<typeof sales.$inferSelect>(),
         400: errorSchemas.validation,
       },
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/sales/:id' as const,
+      input: insertSaleSchema.partial(),
+      responses: {
+        200: z.custom<typeof sales.$inferSelect>(),
+        404: errorSchemas.notFound,
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/sales/:id' as const,
+      responses: {
+        200: z.object({ success: z.boolean() }),
+        404: errorSchemas.notFound,
+      },
     }
   },
   products: {

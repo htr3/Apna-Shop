@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
-import { useSales, useCustomers, useCreateSale, useProducts } from "@/hooks/use-shop";
+import { useSales, useCustomers, useCreateSale, useProducts, useUpdateSale, useDeleteSale } from "@/hooks/use-shop";
 import {
   Plus,
   Search,
@@ -9,7 +9,9 @@ import {
   Banknote,
   Globe,
   Loader2,
-  X
+  X,
+  Edit2,
+  Trash2
 } from "lucide-react";
 import {
   Dialog,
@@ -99,41 +101,12 @@ export default function Sales() {
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Total</th>
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Method</th>
                   <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Products</th>
+                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredSales?.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-slate-500">
-                      {format(new Date(sale.date || ""), "MMM dd, yyyy • hh:mm a")}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-700">
-                      {(sale as any).customerName || "Walk-in"}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-700">
-                      {(sale as any).createdByUserName || "Admin"}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="font-bold text-green-600">₹{Number(sale.paidAmount || 0).toLocaleString()}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="font-bold text-orange-600">₹{Number(sale.pendingAmount || 0).toLocaleString()}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="font-bold text-slate-900">₹{Number(sale.amount).toLocaleString()}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        {sale.paymentMethod === "CASH" && <Banknote className="h-4 w-4 text-green-600" />}
-                        {sale.paymentMethod === "ONLINE" && <Globe className="h-4 w-4 text-blue-600" />}
-                        {sale.paymentMethod === "CREDIT" && <CreditCard className="h-4 w-4 text-purple-600" />}
-                        <span className="font-medium capitalize">{sale.paymentMethod?.toLowerCase()}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-slate-600">📦 Tracked</span>
-                    </td>
-                  </tr>
+                  <SaleRow key={sale.id} sale={sale} />
                 ))}
               </tbody>
             </table>
@@ -523,5 +496,175 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
         </button>
       </div>
     </form>
+  );
+}
+
+function SaleRow({ sale }: { sale: any }) {
+  const { toast } = useToast();
+  const updateSale = useUpdateSale();
+  const deleteSale = useDeleteSale();
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editData, setEditData] = useState({
+    paymentMethod: sale.paymentMethod || "CASH",
+    paidAmount: sale.paidAmount || "0",
+    pendingAmount: sale.pendingAmount || "0",
+  });
+
+  const handleDelete = () => {
+    if (confirm("Are you sure you want to delete this sale? This action cannot be undone.")) {
+      deleteSale.mutate(sale.id, {
+        onSuccess: () => {
+          toast({ title: "Success", description: "Sale deleted successfully" });
+        },
+        onError: (err) => {
+          toast({ title: "Error", description: err.message, variant: "destructive" });
+        }
+      });
+    }
+  };
+
+  const handleUpdateSale = () => {
+    updateSale.mutate({
+      id: sale.id,
+      data: {
+        paymentMethod: editData.paymentMethod as any,
+        paidAmount: editData.paidAmount,
+        pendingAmount: editData.pendingAmount,
+      }
+    }, {
+      onSuccess: () => {
+        toast({ title: "Success", description: "Sale updated successfully" });
+        setIsEditOpen(false);
+      },
+      onError: (err) => {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      }
+    });
+  };
+
+  return (
+    <>
+      <tr className="hover:bg-slate-50/50 transition-colors">
+        <td className="px-6 py-4 text-sm text-slate-500">
+          {format(new Date(sale.date || ""), "MMM dd, yyyy • hh:mm a")}
+        </td>
+        <td className="px-6 py-4 text-sm font-medium text-slate-700">
+          {sale.customerName || "Walk-in"}
+        </td>
+        <td className="px-6 py-4 text-sm font-medium text-slate-700">
+          {sale.createdByUserName || "Admin"}
+        </td>
+        <td className="px-6 py-4">
+          <span className="font-bold text-green-600">₹{Number(sale.paidAmount || 0).toLocaleString()}</span>
+        </td>
+        <td className="px-6 py-4">
+          <span className="font-bold text-orange-600">₹{Number(sale.pendingAmount || 0).toLocaleString()}</span>
+        </td>
+        <td className="px-6 py-4">
+          <span className="font-bold text-slate-900">₹{Number(sale.amount).toLocaleString()}</span>
+        </td>
+        <td className="px-6 py-4">
+          <div className="flex items-center gap-2 text-sm text-slate-600">
+            {sale.paymentMethod === "CASH" && <Banknote className="h-4 w-4 text-green-600" />}
+            {sale.paymentMethod === "ONLINE" && <Globe className="h-4 w-4 text-blue-600" />}
+            {sale.paymentMethod === "CREDIT" && <CreditCard className="h-4 w-4 text-purple-600" />}
+            <span className="font-medium capitalize">{sale.paymentMethod?.toLowerCase()}</span>
+          </div>
+        </td>
+        <td className="px-6 py-4">
+          <span className="text-sm text-slate-600">📦 Tracked</span>
+        </td>
+        <td className="px-6 py-4">
+          <div className="flex items-center gap-2">
+            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+              <DialogTrigger asChild>
+                <button className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                  <Edit2 className="h-4 w-4" />
+                  Edit
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Edit Sale</DialogTitle>
+                  <DialogDescription>Update sale details</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Payment Method</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {["CASH", "ONLINE", "CREDIT"].map((method) => (
+                        <button
+                          key={method}
+                          onClick={() => setEditData({ ...editData, paymentMethod: method })}
+                          className={cn(
+                            "py-2 px-3 rounded-lg border font-medium text-sm transition-all",
+                            editData.paymentMethod === method
+                              ? "bg-primary/10 border-primary text-primary"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                          )}
+                        >
+                          {method === "CASH" && <Banknote className="h-4 w-4 inline mr-1" />}
+                          {method === "ONLINE" && <Globe className="h-4 w-4 inline mr-1" />}
+                          {method === "CREDIT" && <CreditCard className="h-4 w-4 inline mr-1" />}
+                          {method}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700">Amount Paid (₹)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editData.paidAmount}
+                        onChange={(e) => setEditData({ ...editData, paidAmount: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700">Amount Pending (₹)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editData.pendingAmount}
+                        onChange={(e) => setEditData({ ...editData, pendingAmount: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+                  <button
+                    onClick={() => setIsEditOpen(false)}
+                    className="px-4 py-2 text-slate-600 rounded-lg hover:bg-slate-50 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateSale}
+                    disabled={updateSale.isPending}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {updateSale.isPending ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <button
+              onClick={handleDelete}
+              disabled={deleteSale.isPending}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </button>
+          </div>
+        </td>
+      </tr>
+    </>
   );
 }

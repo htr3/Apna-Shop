@@ -24,6 +24,8 @@ export interface IStorage {
   // Sales
   getSales(mobileNo?: string): Promise<Sale[]>;
   createSale(sale: InsertSale, mobileNo?: string): Promise<Sale>;
+  updateSale(id: number, updates: Partial<InsertSale>, mobileNo?: string): Promise<Sale | null>;
+  deleteSale(id: number, mobileNo?: string): Promise<boolean>;
 
   // Products
   getProducts(mobileNo?: string): Promise<Product[]>;
@@ -224,6 +226,31 @@ export class MemStorage implements IStorage {
     };
     this.sales.set(id, sale);
     return sale;
+  }
+
+  async updateSale(id: number, updates: Partial<InsertSale>, mobileNo?: string): Promise<Sale | null> {
+    const existing = this.sales.get(id);
+    if (!existing) return null;
+
+    // Check ownership
+    if (mobileNo && existing.mobileNo !== mobileNo) return null;
+
+    const updated: Sale = {
+      ...existing,
+      ...updates,
+    };
+    this.sales.set(id, updated);
+    return updated;
+  }
+
+  async deleteSale(id: number, mobileNo?: string): Promise<boolean> {
+    const sale = this.sales.get(id);
+    if (!sale) return false;
+
+    // Check ownership
+    if (mobileNo && sale.mobileNo !== mobileNo) return false;
+
+    return this.sales.delete(id);
   }
 
   async getProducts(mobileNo?: string): Promise<Product[]> {
@@ -531,6 +558,56 @@ export class DbStorage implements IStorage {
         // Foreign key constraint violation
         throw new Error("Customer not found");
       }
+      throw error;
+    }
+  }
+
+  async updateSale(id: number, updates: Partial<InsertSale>, mobileNo?: string): Promise<Sale | null> {
+    try {
+      // Check ownership if mobileNo provided
+      if (mobileNo) {
+        const existing = await db.query.sales.findFirst({
+          where: (field, { eq }) => eq(field.id, id),
+        });
+
+        if (!existing || existing.mobileNo !== mobileNo) {
+          return null;
+        }
+      }
+
+      const result = await db
+        .update(sales)
+        .set(updates)
+        .where(eq(sales.id, id))
+        .returning();
+
+      return result[0] || null;
+    } catch (error: any) {
+      console.error("Error updating sale:", error);
+      throw error;
+    }
+  }
+
+  async deleteSale(id: number, mobileNo?: string): Promise<boolean> {
+    try {
+      // Check ownership if mobileNo provided
+      if (mobileNo) {
+        const existing = await db.query.sales.findFirst({
+          where: (field, { eq }) => eq(field.id, id),
+        });
+
+        if (!existing || existing.mobileNo !== mobileNo) {
+          return false;
+        }
+      }
+
+      const result = await db.delete(sales)
+        .where(eq(sales.id, id))
+        .returning();
+
+      return result.length > 0;
+    } catch (error: any) {
+      console.error("Error deleting sale:", error);
       throw error;
     }
   }

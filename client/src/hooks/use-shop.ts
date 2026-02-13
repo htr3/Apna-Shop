@@ -166,6 +166,58 @@ export function useCreateSale() {
   });
 }
 
+export function useUpdateSale() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<InsertSale> }) => {
+      const token = localStorage.getItem("authToken");
+      const url = buildUrl(api.sales.update.path, { id });
+      const res = await fetch(url, {
+        method: api.sales.update.method,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: "Failed to update sale" }));
+        throw new Error(errorData.message || "Failed to update sale");
+      }
+      return api.sales.update.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.sales.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.dashboard.stats.path] });
+    },
+  });
+}
+
+export function useDeleteSale() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const token = localStorage.getItem("authToken");
+      const url = buildUrl(api.sales.delete.path, { id });
+      const res = await fetch(url, {
+        method: api.sales.delete.method,
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: "Failed to delete sale" }));
+        throw new Error(errorData.message || "Failed to delete sale");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.sales.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.dashboard.stats.path] });
+    },
+  });
+}
+
 // --- PRODUCTS ---
 export function useProducts() {
   return useQuery({

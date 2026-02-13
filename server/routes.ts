@@ -260,6 +260,41 @@ export async function registerRoutes(
     }
   });
 
+  app.put(api.sales.update.path, authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(String(req.params.id));
+      const input = api.sales.update.input.parse(req.body);
+      const mobileNo = req.user!.mobileNo;
+      const sale = await storage.updateSale(id, input, mobileNo);
+      if (!sale) {
+        return res.status(404).json({ message: "Sale not found or access denied" });
+      }
+      res.json(sale);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: error.errors[0].message });
+      } else {
+        console.error("Error updating sale:", error);
+        res.status(500).json({ message: error.message || "Failed to update sale" });
+      }
+    }
+  });
+
+  app.delete(api.sales.delete.path, authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(String(req.params.id));
+      const mobileNo = req.user!.mobileNo;
+      const success = await storage.deleteSale(id, mobileNo);
+      if (!success) {
+        return res.status(404).json({ message: "Sale not found or access denied" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting sale:", error);
+      res.status(500).json({ message: error.message || "Failed to delete sale" });
+    }
+  });
+
   // === PRODUCTS ROUTES ===
   app.get(api.products.list.path, authenticateToken, async (req: AuthRequest, res) => {
     const mobileNo = req.user!.mobileNo;
