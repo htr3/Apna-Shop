@@ -2,6 +2,14 @@ import { pgTable, text, serial, integer, boolean, timestamp, numeric, date } fro
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Sale item payload schema for stock updates during sale creation.
+const saleItemPayloadSchema = z.object({
+  productId: z.number().int().optional(),
+  productName: z.string().optional(),
+  quantity: z.number().int().positive(),
+  price: z.number().positive(),
+});
+
 // === TABLE DEFINITIONS ===
 
 // Customers Table
@@ -263,6 +271,7 @@ export const insertBorrowingSchema = createInsertSchema(borrowings).omit({ id: t
 });
 export const insertSaleSchema = createInsertSchema(sales).omit({ id: true, userId: true, mobileNo: true }).extend({
   date: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
+  items: z.union([z.string(), z.array(saleItemPayloadSchema)]).optional(),
 });
 export const insertSaleItemSchema = createInsertSchema(saleItems).omit({ id: true, createdAt: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, userId: true, mobileNo: true, createdAt: true, updatedAt: true }).extend({
@@ -386,4 +395,3 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 export type LoginRequest = z.infer<typeof loginSchema>;
-

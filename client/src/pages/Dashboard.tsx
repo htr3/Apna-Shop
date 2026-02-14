@@ -25,11 +25,13 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { format } from "date-fns";
+import { format, subDays, subMonths } from "date-fns";
+import { useState } from "react";
 
 export default function Dashboard() {
   const { data: stats, isLoading: isStatsLoading } = useDashboardStats();
   const { data: sales, isLoading: isSalesLoading } = useSales();
+  const [dateRange, setDateRange] = useState<"7days" | "1month" | "6months" | "1year" | "overall">("7days");
 
   if (isStatsLoading || isSalesLoading) {
     return (
@@ -41,17 +43,64 @@ export default function Dashboard() {
     );
   }
 
-  // Format sales for chart
-  const salesData = sales?.slice(0, 7).map(sale => ({
-    date: format(new Date(sale.date || ""), "MMM dd"),
-    amount: Number(sale.amount),
-  })) || [];
+  // Filter sales based on date range
+  const getFilteredSales = () => {
+    if (!sales) return [];
+
+    const now = new Date();
+    let startDate: Date;
+
+    switch (dateRange) {
+      case "7days":
+        startDate = subDays(now, 7);
+        break;
+      case "1month":
+        startDate = subMonths(now, 1);
+        break;
+      case "6months":
+        startDate = subMonths(now, 6);
+        break;
+      case "1year":
+        startDate = subMonths(now, 12);
+        break;
+      case "overall":
+        return sales;
+      default:
+        startDate = subDays(now, 7);
+    }
+
+    return sales.filter(sale => {
+      const saleDate = new Date(sale.date || "");
+      return saleDate >= startDate;
+    });
+  };
+
+  const filteredSales = getFilteredSales();
+
+  // Format sales for chart - group by date and sum if multiple sales per day
+  const salesByDate: Record<string, number> = {};
+  filteredSales.forEach(sale => {
+    const dateKey = format(new Date(sale.date || ""), "MMM dd");
+    salesByDate[dateKey] = (salesByDate[dateKey] || 0) + Number(sale.amount);
+  });
+
+  const salesData = Object.entries(salesByDate)
+    .map(([date, amount]) => ({ date, amount }))
+    .slice(-30); // Show max 30 points on chart
 
   // Pie chart data
   const pieData = [
     { name: 'Trustable', value: stats?.trustableCount || 0, color: '#10b981' }, // Emerald-500
     { name: 'Risky', value: stats?.riskyCount || 0, color: '#ef4444' }, // Red-500
   ];
+
+  const dateRangeDescriptions: Record<string, string> = {
+    "7days": "Daily sales over the last 7 days",
+    "1month": "Daily sales over the last 1 month",
+    "6months": "Daily sales over the last 6 months",
+    "1year": "Daily sales over the last 1 year",
+    "overall": "Daily sales performance (all time)",
+  };
 
   return (
     <Layout>
@@ -104,13 +153,34 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-lg font-bold font-display text-slate-900">Sales Trends</h3>
-              <p className="text-sm text-muted-foreground">Daily sales performance over the last 7 days</p>
+              <p className="text-sm text-muted-foreground">{dateRangeDescriptions[dateRange]}</p>
             </div>
             <div className="p-2 bg-primary/5 rounded-lg text-primary">
               <TrendingUp className="h-5 w-5" />
             </div>
           </div>
-          
+
+          {/* Date Range Selector */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            {(["7days", "1month", "6months", "1year", "overall"] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => setDateRange(range)}
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                  dateRange === range
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                {range === "7days" && "7 Days"}
+                {range === "1month" && "1 Month"}
+                {range === "6months" && "6 Months"}
+                {range === "1year" && "1 Year"}
+                {range === "overall" && "Overall"}
+              </button>
+            ))}
+          </div>
+
           <div className="h-[300px] w-full">
             {salesData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">

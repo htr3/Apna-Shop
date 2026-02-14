@@ -5,6 +5,16 @@ import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Loader2, Send, Clock, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend
+} from 'recharts';
 
 export function DailySummaryPanel() {
   const {
@@ -258,6 +268,55 @@ export function DailySummaryPanel() {
                         </span>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                {/* Weekly Sales Chart */}
+                <div className="border-t pt-4 mt-4">
+                  <p className="text-sm font-medium mb-4">Daily Sales Trend</p>
+                  <div className="h-[300px] w-full bg-gray-50 rounded-lg border">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={weeklySummary.dailySummaries.map((daily: any) => ({
+                          date: new Date(daily.date).toLocaleDateString("en-US", {
+                            weekday: "short",
+                          }),
+                          sales: Number(daily.totalSales.toFixed(2)),
+                        }))}
+                        margin={{ top: 10, right: 20, left: 0, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                        <XAxis
+                          dataKey="date"
+                          stroke="#94a3b8"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          stroke="#94a3b8"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => `₹${value}`}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#fff',
+                            borderRadius: '12px',
+                            border: '1px solid #e2e8f0',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                          }}
+                          formatter={(value) => [`₹${value}`, 'Sales']}
+                        />
+                        <Bar
+                          dataKey="sales"
+                          fill="#3b82f6"
+                          radius={[8, 8, 0, 0]}
+                          animationDuration={500}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
               </Card>

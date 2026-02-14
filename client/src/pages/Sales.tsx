@@ -129,7 +129,7 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
   const [pendingAmount, setPendingAmount] = useState<string>("0");
 
   // Product states
-  const [items, setItems] = useState<Array<{ productName: string; quantity: number; price: number }>>([]);
+  const [items, setItems] = useState<Array<{ productId?: number; productName: string; quantity: number; price: number }>>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [isOtherProduct, setIsOtherProduct] = useState(false);
   const [otherProductName, setOtherProductName] = useState("");
@@ -161,6 +161,7 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
   const totalAmount = itemsTotal > 0 ? itemsTotal.toFixed(2) : manualTotal.toFixed(2);
 
   const addProduct = () => {
+    let productId: number | undefined;
     let productName = "";
     let productPrice = 0;
 
@@ -173,7 +174,7 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
         });
         return;
       }
-      productName = "Other";  // ✅ Set as "Other" - no product name needed
+      productName = otherProductName.trim() ? otherProductName.trim() : "Other";
       productPrice = Number(otherProductPrice);
     } else {
       if (!selectedProductId) {
@@ -188,6 +189,7 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
       const product = products?.find(p => p.id === Number(selectedProductId));
       if (!product) return;
 
+      productId = product.id;
       productName = product.name;
       productPrice = Number(product.price);
     }
@@ -201,7 +203,10 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
       return;
     }
 
-    setItems([...items, { productName, quantity: Number(quantity), price: productPrice }]);
+    setItems([
+      ...items,
+      { productId, productName, quantity: Number(quantity), price: productPrice }
+    ]);
 
     // Reset fields
     setSelectedProductId("");

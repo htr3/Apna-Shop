@@ -242,21 +242,47 @@ export class MemStorage implements IStorage {
 
   async createSale(insertSale: InsertSale, mobileNo: string = "0"): Promise<Sale> {
     const id = this.currentId.sales++;
+    const { items, ...saleData } = insertSale as InsertSale & { items?: unknown };
     const sale: Sale = {
       id,
       mobileNo,
       userId: 1,
-      amount: insertSale.amount,
-      paidAmount: insertSale.paidAmount || "0",
-      pendingAmount: insertSale.pendingAmount || "0",
-      date: insertSale.date || new Date(),
-      paymentMethod: insertSale.paymentMethod || "CASH",
-      customerId: insertSale.customerId ?? null,
+      amount: saleData.amount,
+      paidAmount: saleData.paidAmount || "0",
+      pendingAmount: saleData.pendingAmount || "0",
+      date: saleData.date || new Date(),
+      paymentMethod: saleData.paymentMethod || "CASH",
+      customerId: saleData.customerId ?? null,
     };
     this.sales.set(id, sale);
 
+    if (items) {
+      try {
+        const parsedItems = Array.isArray(items) ? items : JSON.parse(String(items));
+        if (Array.isArray(parsedItems)) {
+          for (const item of parsedItems) {
+            const productId = Number((item as any)?.productId);
+            const quantity = Number((item as any)?.quantity);
+            if (!Number.isInteger(productId) || quantity <= 0) continue;
+
+            const existingProduct = this.products.get(productId);
+            if (!existingProduct || existingProduct.mobileNo !== mobileNo) continue;
+
+            const currentQuantity = existingProduct.quantity ?? 0;
+            this.products.set(productId, {
+              ...existingProduct,
+              quantity: Math.max(0, currentQuantity - quantity),
+              updatedAt: new Date(),
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to parse sale items for stock deduction:", error);
+      }
+    }
+
     // ✨ Auto-create borrowing record if sale has pending amount (udhari)
-    const pendingAmount = Number(insertSale.pendingAmount || 0);
+    const pendingAmount = Number(saleData.pendingAmount || 0);
     if (pendingAmount > 0 && sale.customerId) {
       const borrowingId = this.currentId.borrowings++;
       const borrowing: Borrowing = {
@@ -619,13 +645,48 @@ export class DbStorage implements IStorage {
 
   async createSale(sale: InsertSale, mobileNo: string = "0"): Promise<Sale> {
     try {
+      const { items, ...saleData } = sale as InsertSale & { items?: unknown };
       const result = await db.insert(sales).values({
-        ...sale,
+        ...saleData,
         mobileNo: mobileNo,
         userId: 1,
-        date: sale.date || null,
+        date: saleData.date || null,
       }).returning();
       const newSale = result[0];
+
+      if (items) {
+        try {
+          const parsedItems = Array.isArray(items) ? items : JSON.parse(String(items));
+          if (Array.isArray(parsedItems)) {
+            for (const item of parsedItems) {
+              const productId = Number((item as any)?.productId);
+              const quantity = Number((item as any)?.quantity);
+              if (!Number.isInteger(productId) || quantity <= 0) continue;
+
+              const product = await db.query.products.findFirst({
+                where: (field, { eq, and }) => and(
+                  eq(field.id, productId),
+                  eq(field.mobileNo, mobileNo)
+                ),
+              });
+
+              if (!product) continue;
+
+              const currentQuantity = product.quantity ?? 0;
+              const newQuantity = Math.max(0, currentQuantity - quantity);
+
+              await db.update(products)
+                .set({
+                  quantity: newQuantity,
+                  updatedAt: new Date(),
+                })
+                .where(eq(products.id, productId));
+            }
+          }
+        } catch (error) {
+          console.error("Failed to parse sale items for stock deduction:", error);
+        }
+      }
 
       // If sale has a customerId, update customer's totalPurchase, borrowedAmount, and trust score
       if (newSale.customerId != null) {
