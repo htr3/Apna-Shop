@@ -3,17 +3,6 @@
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "framework": "vite",
-  "env": {
-    "DATABASE_URL": {
-      "required": true
-    },
-    "NODE_ENV": {
-      "required": true
-    },
-    "JWT_SECRET": {
-      "required": true
-    }
-  }
+  "framework": "vite"
 }
 
