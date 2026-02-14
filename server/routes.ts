@@ -16,7 +16,8 @@ import { dailySummaryService } from "./services/dailySummaryService.js";
 import { paymentService } from "./services/paymentService.js";
 import { db } from "./db.js";
 import { notificationSettings, notificationsLog, paymentSettings, users } from "../shared/schema.js";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
+import { otpService } from "./services/otpService.js";
 
 // Helper: safely parse input that may be string | string[] | undefined into Date | undefined
 function parseRequestDate(val: unknown): Date | undefined {
@@ -1340,6 +1341,177 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Payment settings error:", error);
       res.status(500).json({ message: error?.message || "Failed to save payment settings" });
+    }
+  });
+
+  // OTP Login + Password Reset
+  app.post(api.auth.requestOtp.path, async (req, res) => {
+    try {
+      const input = api.auth.requestOtp.input.parse(req.body);
+      const identifier = input.identifier.trim();
+
+      const user = await db.query.users.findFirst({
+        where: (field, { or, eq }) => or(eq(field.username, identifier), eq(field.mobileNo, identifier)),
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!user.isActive) {
+        return res.status(401).json({ message: "Account is deactivated" });
+      }
+
+      const otpResult = otpService.requestOtp(identifier, "LOGIN");
+      if (!otpResult.ok) {
+        return res.status(429).json({ message: "Too many OTP requests. Try again later." });
+      }
+
+      const message = `Your Shopkeeper OTP is ${otpResult.otp}. It expires in 5 minutes.`;
+      const sendResult = await notificationService.sendWhatsAppMessage(user.mobileNo, message);
+
+      if (!sendResult.success) {
+        return res.status(500).json({ message: "Failed to send OTP" });
+      }
+
+      return res.json({ success: true, expiresIn: otpService.getExpiresInSeconds() });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("OTP request error:", error);
+      return res.status(500).json({ message: "Failed to request OTP" });
+    }
+  });
+
+  app.post(api.auth.verifyOtp.path, async (req, res) => {
+    try {
+      const input = api.auth.verifyOtp.input.parse(req.body);
+      const identifier = input.identifier.trim();
+      const otp = input.otp.trim();
+
+      const user = await db.query.users.findFirst({
+        where: (field, { or, eq }) => or(eq(field.username, identifier), eq(field.mobileNo, identifier)),
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!user.isActive) {
+        return res.status(401).json({ message: "Account is deactivated" });
+      }
+
+      const verifyResult = otpService.verifyOtp(identifier, "LOGIN", otp);
+      if (!verifyResult.ok) {
+        if (verifyResult.reason === "LOCKED") {
+          return res.status(429).json({ message: "Too many attempts. Request a new OTP." });
+        }
+        return res.status(401).json({ message: "Invalid or expired OTP" });
+      }
+
+      const token = generateToken({
+        userId: user.id,
+        username: user.username,
+        mobileNo: user.mobileNo,
+        role: user.role ?? "OWNER",
+      });
+
+      return res.json({
+        success: true,
+        token,
+        user: {
+          username: user.username,
+          role: user.role,
+          userId: user.id,
+          mobileNo: user.mobileNo,
+        }
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("OTP verify error:", error);
+      return res.status(500).json({ message: "Failed to verify OTP" });
+    }
+  });
+
+  app.post(api.auth.requestPasswordReset.path, async (req, res) => {
+    try {
+      const input = api.auth.requestPasswordReset.input.parse(req.body);
+      const identifier = input.identifier.trim();
+
+      const user = await db.query.users.findFirst({
+        where: (field, { eq }) => eq(field.mobileNo, identifier),
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!user.isActive) {
+        return res.status(401).json({ message: "Account is deactivated" });
+      }
+
+      const otpResult = otpService.requestOtp(identifier, "RESET");
+      if (!otpResult.ok) {
+        return res.status(429).json({ message: "Too many OTP requests. Try again later." });
+      }
+
+      const message = `Your Shopkeeper password reset OTP is ${otpResult.otp}. It expires in 5 minutes.`;
+      const sendResult = await notificationService.sendWhatsAppMessage(user.mobileNo, message);
+
+      if (!sendResult.success) {
+        return res.status(500).json({ message: "Failed to send OTP" });
+      }
+
+      return res.json({ success: true, expiresIn: otpService.getExpiresInSeconds() });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Password reset OTP request error:", error);
+      return res.status(500).json({ message: "Failed to request password reset" });
+    }
+  });
+
+  app.post(api.auth.resetPassword.path, async (req, res) => {
+    try {
+      const input = api.auth.resetPassword.input.parse(req.body);
+      const identifier = input.identifier.trim();
+      const otp = input.otp.trim();
+
+      const user = await db.query.users.findFirst({
+        where: (field, { eq }) => eq(field.mobileNo, identifier),
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!user.isActive) {
+        return res.status(401).json({ message: "Account is deactivated" });
+      }
+
+      const verifyResult = otpService.verifyOtp(identifier, "RESET", otp);
+      if (!verifyResult.ok) {
+        if (verifyResult.reason === "LOCKED") {
+          return res.status(429).json({ message: "Too many attempts. Request a new OTP." });
+        }
+        return res.status(401).json({ message: "Invalid or expired OTP" });
+      }
+
+      await db.update(users)
+        .set({ password: input.newPassword })
+        .where(eq(users.id, user.id));
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Password reset error:", error);
+      return res.status(500).json({ message: "Failed to reset password" });
     }
   });
 

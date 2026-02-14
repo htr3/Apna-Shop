@@ -2,9 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Store, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { api } from "@shared/routes";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
 import { useI18n } from "@/i18n/I18nContext";
 
 export default function Signup() {
@@ -20,21 +18,12 @@ export default function Signup() {
 
   const signupMutation = useMutation({
     mutationFn: async ({ username, mobileNo, password, confirmPassword }: { username: string; mobileNo: string; password: string; confirmPassword: string }) => {
-      const res = await fetch(api.auth.signup.path, {
-        method: api.auth.signup.method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, mobileNo, password, confirmPassword }),  // ✨ ADDED mobileNo
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Signup failed");
-      }
-      return res.json();
+      throw new Error("Signup is not enabled yet");
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast({
         title: "Account created!",
-        description: `Welcome ${data.username}! Please login to continue.`,
+        description: "Please login to continue.",
       });
       setLocation("/login");
     },

@@ -9,7 +9,11 @@ import {
   borrowings,
   sales,
   products,
-  loginSchema
+  loginSchema,
+  otpRequestSchema,
+  otpVerifySchema,
+  passwordResetRequestSchema,
+  passwordResetSchema
 } from './schema.js';
 
 export const errorSchemas = {
@@ -34,6 +38,56 @@ export const api = {
       responses: {
         200: z.object({ success: z.boolean(), username: z.string(), role: z.string(), userId: z.number() }),
         400: errorSchemas.validation,
+      }
+    },
+    requestOtp: {
+      method: 'POST' as const,
+      path: '/api/auth/otp/request' as const,
+      input: otpRequestSchema,
+      responses: {
+        200: z.object({ success: z.boolean(), expiresIn: z.number() }),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+        429: errorSchemas.validation,
+      }
+    },
+    verifyOtp: {
+      method: 'POST' as const,
+      path: '/api/auth/otp/verify' as const,
+      input: otpVerifySchema,
+      responses: {
+        200: z.object({
+          success: z.boolean(),
+          token: z.string(),
+          user: z.object({ username: z.string(), role: z.string(), userId: z.number(), mobileNo: z.string() })
+        }),
+        400: errorSchemas.validation,
+        401: errorSchemas.validation,
+        404: errorSchemas.notFound,
+        429: errorSchemas.validation,
+      }
+    },
+    requestPasswordReset: {
+      method: 'POST' as const,
+      path: '/api/auth/password-reset/request' as const,
+      input: passwordResetRequestSchema,
+      responses: {
+        200: z.object({ success: z.boolean(), expiresIn: z.number() }),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+        429: errorSchemas.validation,
+      }
+    },
+    resetPassword: {
+      method: 'POST' as const,
+      path: '/api/auth/password-reset/confirm' as const,
+      input: passwordResetSchema,
+      responses: {
+        200: z.object({ success: z.boolean() }),
+        400: errorSchemas.validation,
+        401: errorSchemas.validation,
+        404: errorSchemas.notFound,
+        429: errorSchemas.validation,
       }
     }
   },

@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, useState } from "react";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/Login";
+import OtpLogin from "@/pages/OtpLogin";
+import ForgotPassword from "@/pages/ForgotPassword";
 import Dashboard from "@/pages/Dashboard";
 import Customers from "@/pages/Customers";
 import Borrowings from "@/pages/Borrowings";
@@ -34,6 +36,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/login/otp" component={OtpLogin} />
+      <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/">
         <ProtectedRoute component={Dashboard} />
       </Route>
@@ -50,7 +54,7 @@ function Router() {
         <ProtectedRoute component={Products} />
       </Route>
       <Route path="/payment-settings">
-        <ProtectedRoute component={PaymentSettings} requiredRole="OWNER" />
+        <ProtectedRoute component={PaymentSettings} />
       </Route>
       <Route component={NotFound} />
     </Switch>

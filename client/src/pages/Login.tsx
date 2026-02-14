@@ -133,6 +133,23 @@ export default function Login() {
             </label>
           </div>
 
+          <div className="flex items-center justify-between text-sm">
+            <button
+              type="button"
+              onClick={() => setLocation("/login/otp")}
+              className="text-primary hover:underline"
+            >
+              Login with OTP
+            </button>
+            <button
+              type="button"
+              onClick={() => setLocation("/forgot-password")}
+              className="text-slate-600 hover:underline"
+            >
+              Forgot password?
+            </button>
+          </div>
+
           <button
             type="submit"
             disabled={!username.trim() || loginMutation.isPending}
