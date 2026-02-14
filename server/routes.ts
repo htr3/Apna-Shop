@@ -194,6 +194,22 @@ export async function registerRoutes(
     }
   });
 
+  app.put(api.borrowings.updateAmount.path, authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { amount } = req.body;
+      const id = Number(req.params.id);
+      const mobileNo = req.user!.mobileNo;
+      const borrowing = await storage.updateBorrowingAmount(id, amount, mobileNo);
+      if (!borrowing) {
+        return res.status(404).json({ message: "Borrowing not found or access denied" });
+      }
+      res.json(borrowing);
+    } catch (error: any) {
+      console.error("Error updating borrowing amount:", error);
+      res.status(500).json({ message: error.message || "Failed to update borrowing amount" });
+    }
+  });
+
   // Sales
   app.get(api.sales.list.path, authenticateToken, async (req: AuthRequest, res) => {
     const mobileNo = req.user!.mobileNo;

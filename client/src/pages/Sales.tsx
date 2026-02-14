@@ -228,15 +228,15 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
     const submitData = {
       ...data,
       amount: totalAmount,
-      paidAmount: itemsTotal > 0 ? totalAmount : paidAmount,
-      pendingAmount: itemsTotal > 0 ? "0" : pendingAmount,
+      paidAmount: itemsTotal > 0 ? (Number(totalAmount) - Number(pendingAmount)).toString() : paidAmount,
+      pendingAmount: pendingAmount, // ✨ Always include pending amount - syncs to Udhari
       customerId: selectedCustomerId || undefined,
       items: JSON.stringify(items.length > 0 ? items : []), // Store items as JSON
     };
 
     createSale.mutate(submitData as any, {
       onSuccess: () => {
-        toast({ title: "Success", description: "Sale recorded successfully with products" });
+        toast({ title: "Success", description: "Sale recorded successfully" });
         setSelectedCustomerId(null);
         setCustomerSearch("");
         setPaidAmount("0");
@@ -420,9 +420,10 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       {/* Payment Section */}
-      {items.length === 0 && (
-        <div className="space-y-2 border-t border-slate-200 pt-4">
-          <h3 className="font-medium text-slate-900">💰 Manual Entry</h3>
+      <div className="space-y-2 border-t border-slate-200 pt-4">
+        <h3 className="font-medium text-slate-900">💰 Payment Details</h3>
+        {items.length === 0 ? (
+          // Manual entry mode
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Amount Paid (₹)</label>
@@ -448,8 +449,22 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
               />
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          // Products mode - show pending amount field
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Amount Pending (₹) - Udhari</label>
+            <input
+              type="number"
+              step="0.01"
+              value={pendingAmount}
+              onChange={(e) => setPendingAmount(e.target.value)}
+              placeholder="0.00"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+            <p className="text-xs text-slate-500">Enter the amount customer will pay later (Udhari/Credit)</p>
+          </div>
+        )}
+      </div>
 
       <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
         <div className="text-center">

@@ -113,6 +113,15 @@ export const api = {
         200: z.custom<typeof borrowings.$inferSelect>(),
         404: errorSchemas.notFound,
       },
+    },
+    updateAmount: {
+      method: 'PUT' as const,
+      path: '/api/borrowings/:id/amount' as const,
+      input: z.object({ amount: z.string() }),
+      responses: {
+        200: z.custom<typeof borrowings.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
     }
   },
   sales: {

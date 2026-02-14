@@ -42,9 +42,9 @@ class DailySummaryService {
       // Get daily expenses (filtered by mobileNo if provided)
       const dailyExpenses = await db.query.expenses.findMany({
         where: and(
-          gte(sales.date, startOfDay),
-          lte(sales.date, endOfDay),
-          mobileNo ? eq(sales.mobileNo, mobileNo) : undefined
+          gte(expenses.date, startOfDay),
+          lte(expenses.date, endOfDay),
+          mobileNo ? eq(expenses.mobileNo, mobileNo) : undefined
         ),
       });
 

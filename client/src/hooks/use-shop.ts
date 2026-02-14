@@ -128,6 +128,31 @@ export function useUpdateBorrowingStatus() {
   });
 }
 
+export function useUpdateBorrowingAmount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, amount }: { id: number; amount: string }) => {
+      const token = localStorage.getItem("authToken");
+      const url = buildUrl(api.borrowings.updateAmount.path, { id });
+      const res = await fetch(url, {
+        method: api.borrowings.updateAmount.method,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount }),
+      });
+      if (!res.ok) throw new Error("Failed to update amount");
+      return api.borrowings.updateAmount.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.borrowings.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.dashboard.stats.path] });
+      queryClient.invalidateQueries({ queryKey: [api.customers.list.path] });
+    },
+  });
+}
+
 // --- SALES ---
 export function useSales() {
   return useQuery({

@@ -7,7 +7,7 @@ import {
   type DashboardStats
 } from "../shared/schema.js";
 import { db } from "./db.js";
-import { eq, and, gte } from "drizzle-orm"
+import { eq, and, gte, like } from "drizzle-orm"
 
 export interface IStorage {
   // Customers
@@ -20,6 +20,7 @@ export interface IStorage {
   getBorrowings(mobileNo?: string): Promise<(Borrowing & { customerName: string })[]>;
   createBorrowing(borrowing: InsertBorrowing, mobileNo?: string): Promise<Borrowing>;
   updateBorrowingStatus(id: number, status: "PAID" | "PENDING" | "OVERDUE"): Promise<Borrowing>;
+  updateBorrowingAmount(id: number, amount: string, mobileNo?: string): Promise<Borrowing | null>;
 
   // Sales
   getSales(mobileNo?: string): Promise<Sale[]>;
@@ -204,6 +205,35 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
+  async updateBorrowingAmount(id: number, amount: string, mobileNo?: string): Promise<Borrowing | null> {
+    const existing = this.borrowings.get(id);
+    if (!existing) return null;
+
+    // Check ownership if mobileNo provided
+    if (mobileNo && existing.mobileNo !== mobileNo) return null;
+
+    const oldAmount = Number(existing.amount);
+    const newAmount = Number(amount);
+    const difference = newAmount - oldAmount;
+
+    // Update borrowing amount
+    const updated = { ...existing, amount };
+    this.borrowings.set(id, updated);
+
+    // Update customer's borrowedAmount
+    if (existing.customerId) {
+      const customer = Array.from(this.customers.values()).find(c => c.id === existing.customerId);
+      if (customer) {
+        const currentBorrowed = Number(customer.borrowedAmount);
+        const newBorrowed = Math.max(0, currentBorrowed + difference);
+        const updatedCustomer = { ...customer, borrowedAmount: newBorrowed.toString() };
+        this.customers.set(customer.id, updatedCustomer);
+      }
+    }
+
+    return updated;
+  }
+
   async getSales(mobileNo?: string): Promise<Sale[]> {
     const list = Array.from(this.sales.values());
     const filtered = mobileNo ? list.filter(s => s.mobileNo === mobileNo) : list;
@@ -224,6 +254,24 @@ export class MemStorage implements IStorage {
       customerId: insertSale.customerId ?? null,
     };
     this.sales.set(id, sale);
+
+    // ✨ Auto-create borrowing record if sale has pending amount (udhari)
+    const pendingAmount = Number(insertSale.pendingAmount || 0);
+    if (pendingAmount > 0 && sale.customerId) {
+      const borrowingId = this.currentId.borrowings++;
+      const borrowing: Borrowing = {
+        id: borrowingId,
+        mobileNo,
+        customerId: sale.customerId,
+        amount: pendingAmount.toString(),
+        date: sale.date,
+        dueDate: null,
+        status: "PENDING",
+        notes: `Auto-created from Sale #${sale.id}`,
+      };
+      this.borrowings.set(borrowingId, borrowing);
+    }
+
     return sale;
   }
 
@@ -239,6 +287,65 @@ export class MemStorage implements IStorage {
       ...updates,
     };
     this.sales.set(id, updated);
+
+    // ✨ Sync pending amount changes to Udhari tab
+    const oldPendingAmount = Number(existing.pendingAmount || 0);
+    const newPendingAmount = Number(updates.pendingAmount ?? (existing.pendingAmount || 0));
+
+    if (existing.customerId) {
+      // If pending amount increased, create or update borrowing record
+      if (newPendingAmount > oldPendingAmount) {
+        const difference = newPendingAmount - oldPendingAmount;
+
+        // Try to find existing auto-created borrowing for this sale
+        const existingBorrowing = Array.from(this.borrowings.values()).find(
+          b => b.notes?.includes(`Sale #${id}`) && b.customerId === existing.customerId
+        );
+
+        if (existingBorrowing) {
+          // Update existing borrowing amount
+          const updatedBorrowing: Borrowing = {
+            ...existingBorrowing,
+            amount: newPendingAmount.toString(),
+          };
+          this.borrowings.set(existingBorrowing.id, updatedBorrowing);
+        } else {
+          // Create new borrowing record for the difference
+          const borrowingId = this.currentId.borrowings++;
+          const borrowing: Borrowing = {
+            id: borrowingId,
+            mobileNo: existing.mobileNo,
+            customerId: existing.customerId,
+            amount: difference.toString(),
+            date: existing.date,
+            dueDate: null,
+            status: "PENDING",
+            notes: `Auto-created from Sale #${id} (Updated)`,
+          };
+          this.borrowings.set(borrowingId, borrowing);
+        }
+      } else if (newPendingAmount < oldPendingAmount) {
+        // If pending amount decreased, update the borrowing record
+        const existingBorrowing = Array.from(this.borrowings.values()).find(
+          b => b.notes?.includes(`Sale #${id}`) && b.customerId === existing.customerId
+        );
+
+        if (existingBorrowing) {
+          if (newPendingAmount === 0) {
+            // Remove borrowing record if pending is now 0
+            this.borrowings.delete(existingBorrowing.id);
+          } else {
+            // Update borrowing amount
+            const updatedBorrowing: Borrowing = {
+              ...existingBorrowing,
+              amount: newPendingAmount.toString(),
+            };
+            this.borrowings.set(existingBorrowing.id, updatedBorrowing);
+          }
+        }
+      }
+    }
+
     return updated;
   }
 
@@ -432,6 +539,52 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async updateBorrowingAmount(id: number, amount: string, mobileNo?: string): Promise<Borrowing | null> {
+    try {
+      // Get existing borrowing
+      const existingBorrowing = await db.query.borrowings.findFirst({
+        where: (field, { eq }) => eq(field.id, id),
+      });
+
+      if (!existingBorrowing) return null;
+
+      // Check ownership if mobileNo provided
+      if (mobileNo && existingBorrowing.mobileNo !== mobileNo) return null;
+
+      const oldAmount = Number(existingBorrowing.amount);
+      const newAmount = Number(amount);
+      const difference = newAmount - oldAmount;
+
+      // Update borrowing amount
+      const result = await db.update(borrowings)
+        .set({ amount })
+        .where(eq(borrowings.id, id))
+        .returning();
+
+      if (result[0]) {
+        // Update customer's borrowedAmount
+        if (existingBorrowing.customerId) {
+          const customer = await db.query.customers.findFirst({
+            where: (field, { eq }) => eq(field.id, existingBorrowing.customerId),
+          });
+
+          if (customer) {
+            const currentBorrowed = Number(customer.borrowedAmount);
+            const newBorrowed = Math.max(0, currentBorrowed + difference);
+            await db.update(customers)
+              .set({ borrowedAmount: newBorrowed.toString() })
+              .where(eq(customers.id, existingBorrowing.customerId));
+          }
+        }
+      }
+
+      return result[0] || null;
+    } catch (error: any) {
+      console.error("Error updating borrowing amount:", error);
+      throw error;
+    }
+  }
+
   async getSales(mobileNo?: string): Promise<(Sale & { customerName?: string })[]> {
     const salesList = await db.query.sales.findMany({
       where: mobileNo ? (field, { eq }) => eq(field.mobileNo, mobileNo) : undefined,
@@ -503,6 +656,23 @@ export class DbStorage implements IStorage {
             .set(updateData)
             .where(eq(customers.id, newSale.customerId));
 
+          // ✨ Auto-create borrowing record if sale has pending amount (udhari)
+          if (pendingAmount > 0) {
+            try {
+              await db.insert(borrowings).values({
+                customerId: customerId,
+                amount: pendingAmount.toString(),
+                date: newSale.date || new Date(),
+                dueDate: null,
+                status: "PENDING",
+                notes: `Auto-created from Sale #${newSale.id}`,
+                mobileNo: mobileNo,
+              });
+            } catch (error) {
+              console.error("Failed to create automatic borrowing record:", error);
+            }
+          }
+
           // Import trustScoreService dynamically to avoid circular dependency
           try {
             const { trustScoreService } = await import("./services/trustScoreService.js");
@@ -555,13 +725,108 @@ export class DbStorage implements IStorage {
         }
       }
 
+      // Get existing sale before update
+      const existingSale = await db.query.sales.findFirst({
+        where: (field, { eq }) => eq(field.id, id),
+      });
+
+      if (!existingSale) return null;
+
       const result = await db
         .update(sales)
         .set(updates)
         .where(eq(sales.id, id))
         .returning();
 
-      return result[0] || null;
+      const updatedSale = result[0];
+
+      // ✨ Sync pending amount changes to Udhari tab
+      if (updatedSale && existingSale.customerId) {
+        const oldPendingAmount = Number(existingSale.pendingAmount || 0);
+        const newPendingAmount = Number(updates.pendingAmount ?? (existingSale.pendingAmount || 0));
+        const customerId = existingSale.customerId;
+
+        if (newPendingAmount > oldPendingAmount) {
+          // Pending amount increased - update or create borrowing
+          const difference = newPendingAmount - oldPendingAmount;
+
+          // Find existing auto-created borrowing for this sale
+          const existingBorrowing = await db.query.borrowings.findFirst({
+            where: (field, { and, eq, like }) => and(
+              eq(field.customerId, customerId),
+              like(field.notes, `%Sale #${id}%`)
+            ),
+          });
+
+          if (existingBorrowing) {
+            // Update existing borrowing amount
+            await db.update(borrowings)
+              .set({ amount: newPendingAmount.toString() })
+              .where(eq(borrowings.id, existingBorrowing.id));
+          } else {
+            // Create new borrowing record for the added amount
+            await db.insert(borrowings).values({
+              customerId: customerId,
+              amount: difference.toString(),
+              date: existingSale.date || new Date(),
+              dueDate: null,
+              status: "PENDING",
+              notes: `Auto-created from Sale #${id} (Updated)`,
+              mobileNo: mobileNo || existingSale.mobileNo,
+            });
+          }
+
+          // Update customer's borrowedAmount
+          const customer = await db.query.customers.findFirst({
+            where: (field, { eq }) => eq(field.id, customerId),
+          });
+
+          if (customer) {
+            const currentBorrowed = Number(customer.borrowedAmount);
+            const newBorrowed = currentBorrowed + difference;
+            await db.update(customers)
+              .set({ borrowedAmount: newBorrowed.toString() })
+              .where(eq(customers.id, customerId));
+          }
+        } else if (newPendingAmount < oldPendingAmount) {
+          // Pending amount decreased - update or remove borrowing
+          const difference = oldPendingAmount - newPendingAmount;
+
+          const existingBorrowing = await db.query.borrowings.findFirst({
+            where: (field, { and, eq, like }) => and(
+              eq(field.customerId, customerId),
+              like(field.notes, `%Sale #${id}%`)
+            ),
+          });
+
+          if (existingBorrowing) {
+            if (newPendingAmount === 0) {
+              // Delete borrowing if pending is now 0
+              await db.delete(borrowings).where(eq(borrowings.id, existingBorrowing.id));
+            } else {
+              // Update borrowing amount
+              await db.update(borrowings)
+                .set({ amount: newPendingAmount.toString() })
+                .where(eq(borrowings.id, existingBorrowing.id));
+            }
+          }
+
+          // Update customer's borrowedAmount
+          const customer = await db.query.customers.findFirst({
+            where: (field, { eq }) => eq(field.id, customerId),
+          });
+
+          if (customer) {
+            const currentBorrowed = Number(customer.borrowedAmount);
+            const newBorrowed = Math.max(0, currentBorrowed - difference);
+            await db.update(customers)
+              .set({ borrowedAmount: newBorrowed.toString() })
+              .where(eq(customers.id, customerId));
+          }
+        }
+      }
+
+      return updatedSale || null;
     } catch (error: any) {
       console.error("Error updating sale:", error);
       throw error;
