@@ -29,7 +29,7 @@ if (process.env.NODE_ENV === 'production' && process.env.CLOUD_SQL_CONNECTION_NA
 export { pool };
 export const db = drizzle(pool, { schema });
 
-// Seed default users (Owner + Staff)
+// Seed default users (Owner only)
 export async function seedUsers() {
   try {
     const isDbConfigured = process.env.DATABASE_URL || process.env.CLOUD_SQL_CONNECTION_NAME;
@@ -58,31 +58,11 @@ export async function seedUsers() {
       isActive: true,
     });
 
-    // Create default staff users with mobileNo
-    await db.insert(schema.users).values([
-      {
-        mobileNo: "9999999998",  // ✨ CHANGED: Use mobileNo as identifier
-        username: "staff1",
-        password: "staff123",
-        email: "staff1@shopkeeper.local",
-        role: "STAFF",
-        isActive: true,
-      },
-      {
-        mobileNo: "9999999997",  // ✨ CHANGED: Use mobileNo as identifier
-        username: "staff2",
-        password: "staff123",
-        email: "staff2@shopkeeper.local",
-        role: "STAFF",
-        isActive: true,
-      },
-    ]);
-
-    console.log("✓ Default users seeded (owner, staff1, staff2)");
+    console.log("✓ Default owner user seeded");
   } catch (error: any) {
     if (error.code === "23505") {
       // Unique constraint, already exists
-      console.log("Users already exist, skipping seed");
+      console.log("User already exists, skipping seed");
     } else {
       console.error("Error seeding users:", error);
     }

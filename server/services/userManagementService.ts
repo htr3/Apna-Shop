@@ -37,39 +37,6 @@ class UserManagementService {
     }
   }
 
-  /**
-   * Signup a new user
-   */
-  async signup(data: {
-    username: string;
-    password: string;
-    mobileNo: string;  // ✨ CHANGED: Required identifier
-  }): Promise<any> {
-    try {
-      // Check if user already exists
-      const existingUser = await this.getUserByUsername(data.username);
-      if (existingUser) {
-        throw new Error("Username already exists");
-      }
-
-      const result = await db
-        .insert(users)
-        .values({
-          mobileNo: data.mobileNo,  // ✨ CHANGED: Use mobileNo as identifier
-          username: data.username,
-          password: data.password, // Note: In production, hash the password
-          role: "STAFF",
-          permissions: JSON.stringify(rolePermissions.STAFF),
-          isActive: true,
-        })
-        .returning();
-
-      return result[0];
-    } catch (error) {
-      console.error("Failed to signup user:", error);
-      throw error;
-    }
-  }
 
   /**
    * Get user by ID
@@ -100,78 +67,6 @@ class UserManagementService {
   }
 
   /**
-   * Get all users
-   */
-  async getAllUsers(): Promise<any[]> {
-    try {
-      return await db.query.users.findMany();
-    } catch (error) {
-      console.error("Failed to fetch users:", error);
-      return [];
-    }
-  }
-
-  /**
-   * Update user role
-   */
-  async updateUserRole(userId: number, newRole: UserRole): Promise<any> {
-    try {
-      const permissions = rolePermissions[newRole];
-
-      const result = await db
-        .update(users)
-        .set({
-          role: newRole,
-          permissions: JSON.stringify(permissions),
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userId))
-        .returning();
-
-      return result[0];
-    } catch (error) {
-      console.error("Failed to update user role:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Deactivate user
-   */
-  async deactivateUser(userId: number): Promise<boolean> {
-    try {
-      const result = await db
-        .update(users)
-        .set({ isActive: false, updatedAt: new Date() })
-        .where(eq(users.id, userId))
-        .returning();
-
-      return result.length > 0;
-    } catch (error) {
-      console.error("Failed to deactivate user:", error);
-      return false;
-    }
-  }
-
-  /**
-   * Activate user
-   */
-  async activateUser(userId: number): Promise<boolean> {
-    try {
-      const result = await db
-        .update(users)
-        .set({ isActive: true, updatedAt: new Date() })
-        .where(eq(users.id, userId))
-        .returning();
-
-      return result.length > 0;
-    } catch (error) {
-      console.error("Failed to activate user:", error);
-      return false;
-    }
-  }
-
-  /**
    * Check if user has permission
    */
   hasPermission(user: any, permission: string): boolean {
@@ -187,12 +82,6 @@ class UserManagementService {
     }
   }
 
-  /**
-   * Check if user has any of the permissions
-   */
-  hasAnyPermission(user: any, permissions: string[]): boolean {
-    return permissions.some((perm) => this.hasPermission(user, perm));
-  }
 
   /**
    * Log user activity

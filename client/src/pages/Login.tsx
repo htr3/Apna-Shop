@@ -152,20 +152,9 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="text-center mt-8">
-          <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <button
-              onClick={() => setLocation("/signup")}
-              className="text-primary hover:underline font-medium"
-            >
-              Sign up
-            </button>
-          </p>
-        </div>
-
         <div className="text-center text-xs text-muted-foreground mt-8 space-y-2">
           <p>Simple, secure, and made for small businesses.</p>
+          <p>Login with your owner credentials to access your dashboard.</p>
           <p className="sr-only" id="login-button-description">
             Click to log in to your ShopKeeper dashboard
           </p>

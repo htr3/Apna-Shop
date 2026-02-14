@@ -9,8 +9,7 @@ import {
   borrowings,
   sales,
   products,
-  loginSchema,
-  signupSchema
+  loginSchema
 } from './schema.js';
 
 export const errorSchemas = {
@@ -34,15 +33,6 @@ export const api = {
       input: loginSchema,
       responses: {
         200: z.object({ success: z.boolean(), username: z.string(), role: z.string(), userId: z.number() }),
-        400: errorSchemas.validation,
-      }
-    },
-    signup: {
-      method: 'POST' as const,
-      path: '/api/signup' as const,
-      input: signupSchema,
-      responses: {
-        201: z.object({ success: z.boolean(), username: z.string() }),
         400: errorSchemas.validation,
       }
     }

@@ -40,7 +40,6 @@ export const sales = pgTable("sales", {
   date: timestamp("date").defaultNow(),
   paymentMethod: text("payment_method", { enum: ["CASH", "ONLINE", "CREDIT"] }).default("CASH"),
   customerId: integer("customer_id"), // Optional, for tracking who bought what
-  createdByUserId: integer("created_by_user_id"), // NEW: Which staff/user made this sale
 });
 
 // Sale Items Table (for tracking which products are sold)
@@ -167,7 +166,7 @@ export const users = pgTable("users", {
   username: text("username").notNull(),
   password: text("password").notNull(),
   email: text("email"),
-  role: text("role", { enum: ["OWNER", "MANAGER", "STAFF"] }).default("STAFF"),
+  role: text("role", { enum: ["OWNER"] }).default("OWNER"),
   permissions: text("permissions"), // JSON stringified array of permissions
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -344,7 +343,7 @@ export type PaymentSettings = typeof paymentSettings.$inferSelect;
 export type InsertPaymentSettings = z.infer<typeof insertPaymentSettingsSchema>;
 
 // Role permissions
-export type UserRole = "OWNER" | "MANAGER" | "STAFF";
+export type UserRole = "OWNER";
 export const rolePermissions: Record<UserRole, string[]> = {
   OWNER: [
     "VIEW_DASHBOARD",
@@ -370,30 +369,6 @@ export const rolePermissions: Record<UserRole, string[]> = {
     "MANAGE_USERS",
     "VIEW_ANALYTICS",
   ],
-  MANAGER: [
-    "VIEW_DASHBOARD",
-    "CREATE_SALE",
-    "VIEW_SALES",
-    "EDIT_SALE",
-    "CREATE_CUSTOMER",
-    "VIEW_CUSTOMERS",
-    "EDIT_CUSTOMER",
-    "CREATE_BORROWING",
-    "VIEW_BORROWINGS",
-    "EDIT_BORROWING",
-    "VIEW_EXPENSES",
-    "VIEW_REPORTS",
-    "MANAGE_INVENTORY", 
-    "VIEW_ANALYTICS",
-  ],
-  STAFF: [
-    "VIEW_DASHBOARD",
-    "CREATE_SALE",
-    "VIEW_SALES",
-    "CREATE_CUSTOMER",
-    "VIEW_CUSTOMERS",
-    "VIEW_BORROWINGS",
-  ],
 };
 
 // Dashboard Stats Interface
@@ -412,13 +387,3 @@ export const loginSchema = z.object({
 });
 export type LoginRequest = z.infer<typeof loginSchema>;
 
-// Signup
-export const signupSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
-export type SignupRequest = z.infer<typeof signupSchema>;

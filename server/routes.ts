@@ -9,8 +9,7 @@ import { insightsService } from "./services/insightsService.js";
 import { inventoryService } from "./services/inventoryService.js";
 import { trustScoreService } from "./services/trustScoreService.js";
 import { expenseService } from "./services/expenseService.js";
-import { generateToken, authenticateToken, AuthRequest } from "./middleware/auth.js";  // ✨ NEW
-import { userManagementService } from "./services/userManagementService.js";
+import { generateToken, authenticateToken, AuthRequest } from "./middleware/auth.js";
 import { supplierService } from "./services/supplierService.js";
 import { reportService } from "./services/reportService.js";
 import { dailySummaryService } from "./services/dailySummaryService.js";
@@ -98,40 +97,6 @@ export async function registerRoutes(
     }
   });
 
-  // Signup
-  app.post(api.auth.signup.path, async (req, res) => {
-    try {
-      const { username, password, confirmPassword, mobileNo } = req.body;
-
-      if (!username || !password || !confirmPassword || !mobileNo) {
-        return res.status(400).json({
-          message: "Username, password, confirm password, and mobile number are required"
-        });
-      }
-
-      if (password !== confirmPassword) {
-        return res.status(400).json({
-          message: "Passwords do not match"
-        });
-      }
-
-      const user = await userManagementService.signup({
-        username,
-        password,
-        mobileNo  // ✨ CHANGED: Required field
-      });
-
-      res.status(201).json({
-        success: true,
-        username: user.username
-      });
-    } catch (error: any) {
-      console.error("Signup error:", error);
-      res.status(400).json({
-        message: error.message || "Signup failed"
-      });
-    }
-  });
 
   // Dashboard Stats
   app.get(api.dashboard.stats.path, authenticateToken, async (req: AuthRequest, res) => {
@@ -798,128 +763,6 @@ export async function registerRoutes(
     }
   });
 
-  // === USER MANAGEMENT ROUTES ===
-
-  // Create new user
-  app.post("/api/users/create", async (req, res) => {
-    try {
-      const { username, password, email, mobileNo, role } = req.body;
-      if (!username || !password || !mobileNo || !role) {
-        return res.status(400).json({ message: "username, password, mobileNo and role are required"});
-      }
-      const user = await userManagementService.createUser({ username, password, email, mobileNo, role });
-      res.status(201).json(user);
-    } catch (error: any) {
-      console.error("Create user error:", error);
-      res.status(500).json({ message: error?.message || "Failed to create user" });
-    }
-  });
-
-  // Get all users
-  app.get("/api/users/all", async (req, res) => {
-    try {
-      const users = await userManagementService.getAllUsers();
-      res.json(users);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch users" });
-    }
-  });
-
-  // Get user by ID
-  app.get("/api/users/:id", async (req, res) => {
-    try {
-      const user = await userManagementService.getUserById(Number(req.params.id));
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      res.json(user);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
-  // Get user by username
-  app.get("/api/users/username/:username", async (req, res) => {
-    try {
-      const user = await userManagementService.getUserByUsername(req.params.username);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      res.json(user);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
-  // Update user role
-  app.patch("/api/users/:id/role", async (req, res) => {
-    try {
-      const { role } = req.body;
-      const user = await userManagementService.updateUserRole(Number(req.params.id), role);
-      res.json(user);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to update user role" });
-    }
-  });
-
-  // Deactivate user
-  app.post("/api/users/:id/deactivate", async (req, res) => {
-    try {
-      const success = await userManagementService.deactivateUser(Number(req.params.id));
-      res.json({ success });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to deactivate user" });
-    }
-  });
-
-  // Activate user
-  app.post("/api/users/:id/activate", async (req, res) => {
-    try {
-      const success = await userManagementService.activateUser(Number(req.params.id));
-      res.json({ success });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to activate user" });
-    }
-  });
-
-  // Get user activity logs
-  app.get("/api/users/:id/activity-logs", async (req, res) => {
-    try {
-      const limit = req.query.limit ? Number(req.query.limit) : 50;
-      const logs = await userManagementService.getUserActivityLogs(
-        Number(req.params.id),
-        limit
-      );
-      res.json(logs);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch activity logs" });
-    }
-  });
-
-  // Get module activity logs
-  app.get("/api/activity-logs/module/:module", async (req, res) => {
-    try {
-      const limit = req.query.limit ? Number(req.query.limit) : 50;
-      const logs = await userManagementService.getModuleActivityLogs(
-        req.params.module,
-        limit
-      );
-      res.json(logs);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch module logs" });
-    }
-  });
-
-  // Get audit trail
-  app.get("/api/audit-trail", async (req, res) => {
-    try {
-      const limit = req.query.limit ? Number(req.query.limit) : 100;
-      const trail = await userManagementService.getAuditTrail(limit);
-      res.json(trail);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch audit trail" });
-    }
-  });
 
   // === SUPPLIER MANAGEMENT ROUTES ===
 

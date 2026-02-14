@@ -222,7 +222,6 @@ export class MemStorage implements IStorage {
       date: insertSale.date || new Date(),
       paymentMethod: insertSale.paymentMethod || "CASH",
       customerId: insertSale.customerId ?? null,
-      createdByUserId: insertSale.createdByUserId ?? null,
     };
     this.sales.set(id, sale);
     return sale;
@@ -433,32 +432,15 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  async getSales(mobileNo?: string): Promise<(Sale & { createdByUserName?: string; customerName?: string })[]> {
+  async getSales(mobileNo?: string): Promise<(Sale & { customerName?: string })[]> {
     const salesList = await db.query.sales.findMany({
       where: mobileNo ? (field, { eq }) => eq(field.mobileNo, mobileNo) : undefined,
     });
 
-    // Fetch user and customer information for each sale
     const salesWithInfo = await Promise.all(
       salesList.map(async (sale: any) => {
-        let createdByUserName = "Admin";
         let customerName = "Walk-in";
 
-        // If createdByUserId exists, fetch user name
-        if (sale.createdByUserId) {
-          try {
-            const user = await db.query.users.findFirst({
-              where: (u: any, { eq }: any) => eq(u.id, sale.createdByUserId),
-            });
-            if (user) {
-              createdByUserName = user.username || "Unknown User";
-            }
-          } catch (error) {
-            // User not found, keep default
-          }
-        }
-
-        // If customerId exists, fetch customer name
         if (sale.customerId) {
           try {
             const customer = await db.query.customers.findFirst({
@@ -467,15 +449,14 @@ export class DbStorage implements IStorage {
             if (customer) {
               customerName = customer.name || "Unknown Customer";
             }
-          } catch (error) {
+          } catch {
             // Customer not found, keep default
           }
         }
 
         return {
           ...sale,
-          createdByUserName,
-          customerName
+          customerName,
         };
       })
     );
@@ -487,7 +468,7 @@ export class DbStorage implements IStorage {
     try {
       const result = await db.insert(sales).values({
         ...sale,
-        mobileNo: mobileNo,  // ✨ CHANGED: Use mobileNo instead of shopkeeperId
+        mobileNo: mobileNo,
         userId: 1,
         date: sale.date || null,
       }).returning();

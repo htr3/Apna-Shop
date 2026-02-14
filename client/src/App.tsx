@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, useState } from "react";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/Login";
-import Signup from "@/pages/Signup";
 import Dashboard from "@/pages/Dashboard";
 import Customers from "@/pages/Customers";
 import Borrowings from "@/pages/Borrowings";
@@ -16,26 +15,18 @@ import PaymentSettings from "@/pages/PaymentSettings";
 import { I18nProvider } from "@/i18n/I18nContext";
 
 // Auth Guard Wrapper
-function ProtectedRoute({ component: Component, requiredRole }: { component: React.ComponentType; requiredRole?: string }) {
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const [location, setLocation] = useLocation();
   const user = localStorage.getItem("shopOwner");
-  const userRole = localStorage.getItem("userRole");
 
   useEffect(() => {
     if (!user) {
       setLocation("/login");
       return;
     }
-
-    // Check role-based access
-    if (requiredRole && userRole !== requiredRole) {
-      setLocation("/");
-      return;
-    }
-  }, [user, userRole, setLocation, requiredRole]);
+  }, [user, setLocation]);
 
   if (!user) return null;
-  if (requiredRole && userRole !== requiredRole) return null;
   return <Component />;
 }
 
@@ -43,7 +34,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
-      <Route path="/signup" component={Signup} />
       <Route path="/">
         <ProtectedRoute component={Dashboard} />
       </Route>
