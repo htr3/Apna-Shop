@@ -15,7 +15,7 @@
     "seed": "tsx server/db.ts"
   },
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
