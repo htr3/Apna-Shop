@@ -29,8 +29,8 @@ if (process.env.DATABASE_URL) {
   pool = new Pool();
 }
 
-// ...existing code...
-
+export { pool };
+export const db = drizzle(pool, { schema });
 
 // Seed default users (Owner only)
 export async function seedUsers() {
