@@ -11,7 +11,11 @@
     "start": "cross-env NODE_ENV=production node dist/server/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push",
+    "db:pull": "drizzle-kit introspect:pg",
     "seed": "tsx server/db.ts"
+  },
+  "engines": {
+    "node": "18.x"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
