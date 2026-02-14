@@ -176,6 +176,18 @@ export default function Login() {
             Click to log in to your ShopKeeper dashboard
           </p>
         </div>
+
+        <div className="text-center mt-6 pt-6 border-t border-slate-200">
+          <p className="text-sm text-slate-600">
+            Don't have an account?{" "}
+            <button
+              onClick={() => setLocation("/signup")}
+              className="text-primary hover:underline font-medium"
+            >
+              Create one now
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );

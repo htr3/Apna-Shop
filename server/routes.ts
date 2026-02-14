@@ -98,6 +98,55 @@ export async function registerRoutes(
     }
   });
 
+  // Signup
+  app.post(api.auth.signup.path, async (req, res) => {
+    try {
+      const input = api.auth.signup.input.parse(req.body);
+
+      // Check if user already exists by username
+      const existingUser = await db.query.users.findFirst({
+        where: eq(users.username, input.username),
+      });
+
+      if (existingUser) {
+        return res.status(409).json({ message: "Username already taken" });
+      }
+
+      // Check if user already exists by mobileNo
+      const existingMobileUser = await db.query.users.findFirst({
+        where: eq(users.mobileNo, input.mobileNo),
+      });
+
+      if (existingMobileUser) {
+        return res.status(409).json({ message: "Mobile number already registered" });
+      }
+
+      // Create new user
+      const result = await db.insert(users).values({
+        mobileNo: input.mobileNo,
+        username: input.username,
+        password: input.password, // In production, use proper hashing (bcrypt)
+        email: null,
+        role: "OWNER",
+        isActive: true,
+      }).returning();
+
+      const newUser = result[0];
+
+      return res.status(201).json({
+        success: true,
+        username: newUser.username,
+        mobileNo: newUser.mobileNo,
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Signup error:", error);
+      res.status(500).json({ message: "Failed to create account" });
+    }
+  });
+
 
   // Dashboard Stats
   app.get(api.dashboard.stats.path, authenticateToken, async (req: AuthRequest, res) => {

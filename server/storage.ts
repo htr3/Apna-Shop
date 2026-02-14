@@ -132,6 +132,13 @@ export class MemStorage implements IStorage {
   }
 
   async createCustomer(insertCustomer: InsertCustomer, mobileNo: string = "0"): Promise<Customer> {
+    const existing = Array.from(this.customers.values()).find(
+      c => c.mobileNo === mobileNo && c.phone === insertCustomer.phone
+    );
+    if (existing) {
+      throw new Error("This phone number is already registered");
+    }
+
     const id = this.currentId.customers++;
     const customer: Customer = {
       id,
@@ -490,6 +497,17 @@ export class DbStorage implements IStorage {
 
   async createCustomer(customer: InsertCustomer, mobileNo: string = "0"): Promise<Customer> {
     try {
+      const existing = await db.query.customers.findFirst({
+        where: (field, { and, eq }) => and(
+          eq(field.mobileNo, mobileNo),
+          eq(field.phone, customer.phone)
+        ),
+      });
+
+      if (existing) {
+        throw new Error("This phone number is already registered");
+      }
+
       const result = await db.insert(customers).values({
         ...customer,
         mobileNo: mobileNo,  // ✨ CHANGED: Use mobileNo instead of shopkeeperId

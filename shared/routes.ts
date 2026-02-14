@@ -13,7 +13,8 @@ import {
   otpRequestSchema,
   otpVerifySchema,
   passwordResetRequestSchema,
-  passwordResetSchema
+  passwordResetSchema,
+  insertUserSchema
 } from './schema.js';
 
 export const errorSchemas = {
@@ -38,6 +39,24 @@ export const api = {
       responses: {
         200: z.object({ success: z.boolean(), username: z.string(), role: z.string(), userId: z.number() }),
         400: errorSchemas.validation,
+      }
+    },
+    signup: {
+      method: 'POST' as const,
+      path: '/api/signup' as const,
+      input: z.object({
+        username: z.string().min(3, "Username must be at least 3 characters"),
+        mobileNo: z.string().regex(/^[0-9]{10}$/, "Mobile number must be 10 digits"),
+        password: z.string().min(6, "Password must be at least 6 characters"),
+        confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
+      }).refine((data) => data.password === data.confirmPassword, {
+        message: "Passwords don't match",
+        path: ["confirmPassword"],
+      }),
+      responses: {
+        201: z.object({ success: z.boolean(), username: z.string(), mobileNo: z.string() }),
+        400: errorSchemas.validation,
+        409: z.object({ message: z.string() }),
       }
     },
     requestOtp: {
