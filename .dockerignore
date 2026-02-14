@@ -1,0 +1,12 @@
+# Ignore node_modules, as they will be installed inside the container
+node_modules
+
+# Ignore local environment files
+.env
+.env.*
+
+# Ignore build output, logs, and git/vscode files
+dist
+npm-debug.log
+.git
+.vscode
