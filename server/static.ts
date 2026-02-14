@@ -7,17 +7,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "../public");
+  // Point to dist/public where built frontend is located
+  const distPath = path.resolve(__dirname, "../dist/public");
   if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+    console.warn(
+      `Build directory not found: ${distPath}. Frontend will not be served. Make sure to run: npm run build:client`,
     );
+    return;
   }
 
+  // Serve static files (CSS, JS, images, etc.)
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("/{*path}", (_req, res) => {
+  // Fall through to index.html for SPA routing (all non-API routes)
+  app.get("*", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
+
