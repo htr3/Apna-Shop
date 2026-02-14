@@ -1,23 +1,16 @@
 {
+  "extends": "../tsconfig.json",
   "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "node",
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noImplicitAny": false,
-    "strictNullChecks": true,
-    "resolveJsonModule": true,
-    "outDir": "../dist",
-    "rootDir": "..",
-    "baseUrl": "..",
-    "paths": {
-      "@shared/*": ["shared/*"]
-    },
-    "types": ["node"]
+    "outDir": "../dist/server",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noEmit": false
   },
-  "include": ["./**/*", "../shared/**/*"],
-  "exclude": ["node_modules", "./vite.ts"]
+  "include": ["./**/*.ts", "../shared/**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts"]
 }
+

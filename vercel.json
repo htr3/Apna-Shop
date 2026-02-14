@@ -1,12 +1,13 @@
 {
-  "buildCommand": "npm run build:client",
-  "outputDirectory": "dist/public",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": "vite",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+  "functions": {
+    "server/index.ts": {
+      "runtime": "nodejs24.x",
+      "memory": 1024,
+      "maxDuration": 30
     }
-  ]
+  }
 }
