@@ -264,39 +264,186 @@ export const paymentSettings = pgTable("payment_settings", {
 
 // === SCHEMAS ===
 
-export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, userId: true, mobileNo: true });
-export const insertBorrowingSchema = createInsertSchema(borrowings).omit({ id: true, mobileNo: true }).extend({
+// Manual schema creation to avoid drizzle-zod omit issues
+export const insertCustomerSchema = z.object({
+  name: z.string().min(1),
+  phone: z.string().min(1),
+  trustScore: z.number().int().min(0).max(100).optional(),
+  totalPurchase: z.string().optional(),
+  borrowedAmount: z.string().optional(),
+  isRisky: z.boolean().optional(),
+});
+
+export const insertBorrowingSchema = z.object({
+  customerId: z.number().int(),
+  amount: z.string(),
   date: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
   dueDate: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
+  status: z.enum(["PAID", "PENDING", "OVERDUE"]).optional(),
+  notes: z.string().optional(),
 });
-export const insertSaleSchema = createInsertSchema(sales).omit({ id: true, userId: true, mobileNo: true }).extend({
+
+export const insertSaleSchema = z.object({
+  amount: z.string(),
+  paidAmount: z.string().optional(),
+  pendingAmount: z.string().optional(),
   date: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
+  paymentMethod: z.enum(["CASH", "ONLINE", "CREDIT"]).optional(),
+  customerId: z.number().int().optional(),
   items: z.union([z.string(), z.array(saleItemPayloadSchema)]).optional(),
 });
-export const insertSaleItemSchema = createInsertSchema(saleItems).omit({ id: true, createdAt: true });
-export const insertProductSchema = createInsertSchema(products).omit({ id: true, userId: true, mobileNo: true, createdAt: true, updatedAt: true }).extend({
+
+export const insertSaleItemSchema = z.object({
+  saleId: z.number().int(),
+  productId: z.number().int(),
+  productName: z.string().min(1),
+  quantity: z.number().int().positive(),
+  price: z.string(),
+  total: z.string(),
+  isOther: z.boolean().optional(),
+});
+
+export const insertProductSchema = z.object({
+  name: z.string().min(1),
+  price: z.string(),
+  category: z.string().optional(),
+  description: z.string().optional(),
   quantity: z.number().int().min(0).optional(),
   unit: z.string().min(1).optional(),
+  isActive: z.boolean().optional(),
 });
+
 export const updateProductSchema = insertProductSchema.partial();
-export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings).omit({ id: true, mobileNo: true });
-export const insertNotificationsLogSchema = createInsertSchema(notificationsLog).omit({ id: true, mobileNo: true });
-export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, invoiceUrl: true, mobileNo: true });
-export const insertInventorySchema = createInsertSchema(inventory).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).omit({ id: true });
-export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true }).extend({
+
+export const insertNotificationSettingsSchema = z.object({
+  customerId: z.number().int(),
+  whatsappEnabled: z.boolean().optional(),
+  smsEnabled: z.boolean().optional(),
+  emailEnabled: z.boolean().optional(),
+  reminderDaysBefore: z.number().int().optional(),
+});
+
+export const insertNotificationsLogSchema = z.object({
+  borrowingId: z.number().int(),
+  customerId: z.number().int(),
+  message: z.string().min(1),
+  type: z.enum(["WHATSAPP", "SMS", "EMAIL"]),
+  status: z.enum(["SENT", "FAILED", "PENDING"]).optional(),
+  sentAt: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
+});
+
+export const insertInvoiceSchema = z.object({
+  saleId: z.number().int(),
+  customerId: z.number().int().optional(),
+  invoiceNumber: z.string().min(1),
+  amount: z.string(),
+  items: z.string().optional(),
+  status: z.enum(["PENDING", "SENT", "CANCELLED"]).optional(),
+});
+
+export const insertInventorySchema = z.object({
+  name: z.string().min(1),
+  sku: z.string().optional(),
+  quantity: z.number().int().min(0),
+  minThreshold: z.number().int().min(0).optional(),
+  avgDailySales: z.string().optional(),
+  lastRestockDate: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
+});
+
+export const insertInventoryTransactionSchema = z.object({
+  itemId: z.number().int(),
+  quantity: z.number().int(),
+  type: z.enum(["SALE", "RESTOCK", "ADJUSTMENT", "LOSS"]),
+  notes: z.string().optional(),
+});
+
+export const insertExpenseSchema = z.object({
+  category: z.enum([
+    "RENT",
+    "ELECTRICITY",
+    "SUPPLIER_PAYMENT",
+    "SALARIES",
+    "MAINTENANCE",
+    "SHIPPING",
+    "ADVERTISING",
+    "UTILITIES",
+    "OTHER",
+  ]),
+  amount: z.string(),
+  description: z.string().optional(),
   date: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
+  invoiceNumber: z.string().optional(),
+  paymentMethod: z.enum(["CASH", "CHECK", "ONLINE"]).optional(),
 });
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertUserActivityLogSchema = createInsertSchema(userActivityLog).omit({ id: true });
-export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertSupplierTransactionSchema = createInsertSchema(supplierTransactions).omit({ id: true }).extend({
+
+export const insertUserSchema = z.object({
+  mobileNo: z.string().min(1),
+  username: z.string().min(1),
+  password: z.string().min(1),
+  email: z.string().email().optional(),
+  role: z.enum(["OWNER"]).optional(),
+  permissions: z.string().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const insertUserActivityLogSchema = z.object({
+  userId: z.number().int(),
+  action: z.string().min(1),
+  module: z.string().min(1),
+  resourceId: z.number().int().optional(),
+  changes: z.string().optional(),
+  timestamp: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
+});
+
+export const insertSupplierSchema = z.object({
+  name: z.string().min(1),
+  phone: z.string().optional(),
+  email: z.string().email().optional(),
+  address: z.string().optional(),
+  paymentTerms: z.string().optional(),
+  totalOwed: z.string().optional(),
+  totalPurchased: z.string().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const insertSupplierTransactionSchema = z.object({
+  supplierId: z.number().int(),
+  type: z.enum(["PURCHASE", "PAYMENT", "RETURN", "ADJUSTMENT"]),
+  amount: z.string(),
+  description: z.string().optional(),
+  invoiceNumber: z.string().optional(),
   dueDate: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
+  status: z.enum(["PAID", "PENDING", "OVERDUE"]).optional(),
 });
-export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+
+export const insertPaymentSchema = z.object({
+  customerId: z.number().int(),
+  borrowingId: z.number().int().optional(),
+  amount: z.string(),
+  paymentMethod: z.enum(["UPI", "BANK_TRANSFER", "CARD", "CASH"]).optional(),
+  transactionId: z.string().min(1),
+  status: z.enum(["SUCCESS", "PENDING", "FAILED"]).optional(),
+  reference: z.string().optional(),
+  upiId: z.string().optional(),
+  payerName: z.string().optional(),
   paymentDate: z.union([z.date(), z.string().datetime()]).pipe(z.coerce.date()).optional(),
 });
-export const insertPaymentSettingsSchema = createInsertSchema(paymentSettings).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertPaymentSettingsSchema = z.object({
+  ownerUpiId: z.string().optional(),
+  ownerUpiName: z.string().optional(),
+  ownerPhoneNumber: z.string().optional(),
+  bankName: z.string().optional(),
+  bankAccountNumber: z.string().optional(),
+  bankIfsc: z.string().optional(),
+  qrCodeUrl: z.string().optional(),
+  razorpayApiKey: z.string().optional(),
+  razorpayWebhookSecret: z.string().optional(),
+  enableUpi: z.boolean().optional(),
+  enableBankTransfer: z.boolean().optional(),
+  enableCard: z.boolean().optional(),
+  enableCash: z.boolean().optional(),
+});
 
 // === EXPLICIT API TYPES ===
 

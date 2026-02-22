@@ -106,7 +106,7 @@ If you have any questions, please contact us.
         status,
         message,
         sentAt: status === "SENT" ? new Date() : undefined,
-      });
+      } as any);
     } catch (error) {
       console.error("Failed to log notification:", error);
     }
@@ -227,7 +227,7 @@ If you have any questions, please contact us.
         status: result.success ? "SENT" : "FAILED",
         message,
         sentAt: result.success ? new Date() : undefined,
-      });
+      } as any);
 
       return result;
     } catch (error) {

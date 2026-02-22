@@ -22,8 +22,11 @@ class SchedulerService {
   private scheduleOverdueReminders(): void {
     const jobName = "sendOverdueReminders";
 
-    // Run immediately on start
-    this.runOverdueReminders();
+    // Skip immediate run during startup to prevent hanging
+    // Run immediately in production after server fully starts
+    if (process.env.NODE_ENV !== 'production') {
+      // this.runOverdueReminders();
+    }
 
     // Then run every 60 minutes (3600000 ms)
     const interval = setInterval(() => {

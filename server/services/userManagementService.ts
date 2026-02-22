@@ -27,7 +27,7 @@ class UserManagementService {
           role: data.role,
           permissions: JSON.stringify(permissions),
           isActive: true,
-        })
+        } as any)
         .returning();
 
       return result[0];
@@ -103,7 +103,7 @@ class UserManagementService {
         module: data.module,
         resourceId: data.resourceId,
         changes: data.changes ? JSON.stringify(data.changes) : null,
-      });
+      } as any);
     } catch (error) {
       console.error("Failed to log activity:", error);
     }

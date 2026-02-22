@@ -710,10 +710,10 @@ export async function registerRoutes(
       const expense = await expenseService.addExpense({
         category,
         amount: Number(amount),
-        description,
+        description: description || undefined,
         date: parseRequestDate(date),
-        invoiceNumber,
-        paymentMethod,
+        invoiceNumber: invoiceNumber || undefined,
+        paymentMethod: paymentMethod || undefined,
       });
       res.status(201).json(expense);
     } catch (error) {

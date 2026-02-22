@@ -173,22 +173,7 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async getBorrowings(mobileNo?: string): Promise<(Borrowing & { customerName: string })[]> {
-    const list = Array.from(this.borrowings.values());
-    const filtered = mobileNo ? list.filter(b => b.mobileNo === mobileNo) : list;
-    const customerMap = new Map<number, string>();
-    for (const b of filtered) {
-      if (!customerMap.has(b.customerId)) {
-        const customer = this.customers.get(b.customerId);
-        customerMap.set(b.customerId, customer?.name || "Unknown");
-      }
-    }
-    return filtered.map(b => ({
-      ...b,
-      customerName: customerMap.get(b.customerId) || "Unknown",
-    }));
-  }
-
+  async getBorrowings(mobileNo?: string): Promise<(Borrowing & { customerName: string })[]>;
   async createBorrowing(borrowing: InsertBorrowing, mobileNo: string = "0"): Promise<Borrowing> {
     const id = this.currentId.borrowings++;
     const record: Borrowing = {
@@ -508,7 +493,7 @@ export class DbStorage implements IStorage {
         throw new Error("This phone number is already registered");
       }
 
-      const result = await db.insert(customers).values({
+            const result = await db.insert(customers).values({
         ...customer,
         mobileNo: mobileNo,  // ✨ CHANGED: Use mobileNo instead of shopkeeperId
         userId: 1, // Default user ID for single-user app
@@ -556,7 +541,7 @@ export class DbStorage implements IStorage {
 
   async createBorrowing(borrowing: InsertBorrowing, mobileNo: string = "0"): Promise<Borrowing> {
     try {
-      const result = await db.insert(borrowings).values({
+            const result = await db.insert(borrowings).values({
         ...borrowing,
         mobileNo: mobileNo,  // ✨ CHANGED: Use mobileNo instead of shopkeeperId
       }).returning();
@@ -669,7 +654,7 @@ export class DbStorage implements IStorage {
         mobileNo: mobileNo,
         userId: 1,
         date: saleData.date || null,
-      }).returning();
+      } as any).returning();
       const newSale = result[0];
 
       if (items) {
@@ -746,7 +731,7 @@ export class DbStorage implements IStorage {
                 status: "PENDING",
                 notes: `Auto-created from Sale #${newSale.id}`,
                 mobileNo: mobileNo,
-              });
+              } as any);
             } catch (error) {
               console.error("Failed to create automatic borrowing record:", error);
             }
@@ -852,7 +837,7 @@ export class DbStorage implements IStorage {
               status: "PENDING",
               notes: `Auto-created from Sale #${id} (Updated)`,
               mobileNo: mobileNo || existingSale.mobileNo,
-            });
+            } as any);
           }
 
           // Update customer's borrowedAmount
@@ -950,7 +935,7 @@ export class DbStorage implements IStorage {
         ...product,
         mobileNo: mobileNo,  // ✨ CHANGED: Use mobileNo instead of shopkeeperId
         userId: 1,
-      }).returning();
+      } as any).returning();
       return result[0];
     } catch (error: any) {
       console.error("Error creating product:", error);

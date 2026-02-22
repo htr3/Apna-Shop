@@ -1,5 +1,4 @@
 {
-  "extends": "../tsconfig.json",
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "node",
@@ -9,11 +8,17 @@
     "declarationMap": true,
     "sourceMap": true,
     "noEmit": false,
-    "emitDeclarationOnly": false,
+    "noEmitOnError": false,
     "skipLibCheck": true,
-    "allowImportingTsExtensions": false
+    "allowImportingTsExtensions": false,
+    "lib": ["esnext"],
+    "strict": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true
   },
-  "include": ["./**/*.ts", "../shared/**/*.ts"],
+  "include": ["./**/*.ts"],
   "exclude": ["node_modules", "**/*.test.ts", "../dist/**/*"]
 }
+
+
 

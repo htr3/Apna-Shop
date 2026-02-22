@@ -62,52 +62,93 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
+// Add health check endpoint for Cloud Run
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Startup sequence - start server quickly, initialize in background
+async function startServer() {
   try {
-    await seedUsers();
-    await registerRoutes(httpServer, app);
-  } catch (error) {
-    console.error("Error during startup initialization:", error);
-  }
+    // Set up error middleware immediately
+    app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-  // Start scheduled jobs for reminders
-  schedulerService.startAll();
+      console.error("Internal Server Error:", err);
 
-  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+      if (res.headersSent) {
+        return next(err);
+      }
 
-    console.error("Internal Server Error:", err);
+      return res.status(status).json({ message });
+    });
 
-    if (res.headersSent) {
-      return next(err);
+    // Setup frontend serving immediately (important for production)
+    if (process.env.NODE_ENV === "production") {
+      log("Setting up static file serving for production...");
+      serveStatic(app);
+    } else {
+      log("Setting up Vite in development mode...");
+      const { setupVite } = await import("./vite.js");
+      await setupVite(httpServer, app);
     }
 
-    return res.status(status).json({ message });
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (process.env.NODE_ENV === "production") {
-    // In production, serve built frontend files
-    serveStatic(app);
-  } else {
-    // In development, use Vite HMR
-    const { setupVite } = await import("./vite.js");
-    await setupVite(httpServer, app);
+    log("Routes and middleware registered");
+  } catch (error) {
+    log(`ERROR during sync initialization: ${error instanceof Error ? error.message : String(error)}`, "error");
+    console.error("Full error details:", error);
+    throw error;
   }
-})();
 
-// ALWAYS serve the app on the port specified in the environment variable PORT
-// Default to 3000 if not specified (Railway/Render default)
-const port = parseInt(process.env.PORT || "3000", 10);
-httpServer.listen(
-  {
-    port,
-    host: "0.0.0.0",
-  },
-  () => {
-    log(`serving on port ${port}`);
-  },
-);
+  // Start server listening immediately
+  const port = parseInt(process.env.PORT || "3000", 10);
+  httpServer.listen(
+    {
+      port,
+      host: "0.0.0.0",
+    },
+    () => {
+      log(`✓ Server is running on port ${port}`);
+      log(`✓ Environment: ${process.env.NODE_ENV || "development"}`);
+    },
+  );
+
+  // Run database initialization in background (don't block server startup)
+  (async () => {
+    try {
+      log("Initializing database connection in background...");
+
+      // Add timeout for database initialization (30 seconds max)
+      const dbInitTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Database initialization timeout after 30 seconds")), 30000)
+      );
+
+      await Promise.race([seedUsers(), dbInitTimeout]);
+      log("Database initialized successfully");
+
+      // Register dynamic API routes after database is ready
+      log("Registering API routes...");
+      await registerRoutes(httpServer, app);
+      log("API routes registered successfully");
+
+      // Start scheduled jobs for reminders
+      log("Starting scheduler service...");
+      schedulerService.startAll();
+      log("Scheduler service started");
+
+      log("✓ Full server initialization complete");
+
+    } catch (error) {
+      log(`WARNING: Background initialization error: ${error instanceof Error ? error.message : String(error)}`, "warn");
+      console.error("Full error details:", error);
+      log("Server is still running, some features may not be available");
+    }
+  })();
+}
+
+// Start the server
+startServer().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});
