@@ -6,11 +6,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://apna-shop-backend.onrender.com/api/:path*"
+      "destination": "https://apna-shop-backend-service.onrender.com/api/:path*"
     },
     {
       "source": "/health",
-      "destination": "https://apna-shop-backend.onrender.com/health"
+      "destination": "https://apna-shop-backend-service.onrender.com/health"
     },
     {
       "source": "/(.*)",
