@@ -10,6 +10,11 @@ node_modules/
 /dist
 /build
 
+# Java / Maven build output
+target/
+*.jar
+!**/.mvn/wrapper/maven-wrapper.jar
+
 # Environment
 .env
 .env.local
