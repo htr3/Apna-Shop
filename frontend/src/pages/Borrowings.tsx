@@ -12,7 +12,8 @@ import {
   Edit2,
   Save,
   X,
-  Wallet
+  Wallet,
+  FileText
 } from "lucide-react";
 import {
   Dialog,
@@ -26,14 +27,27 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertBorrowingSchema, type InsertBorrowing } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { format, isPast, parseISO } from "date-fns";
+import { format, isPast, parseISO, differenceInCalendarDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { openUpiQrWindow } from "@/lib/upi";
-import { QrCode } from "lucide-react";
+import { openCustomerStatement } from "@/lib/statement";
+import { sendWhatsAppReminder } from "@/lib/reminder";
+import { QrCode, MessageCircle } from "lucide-react";
+
+// An entry is overdue when it still owes money and its due date has passed.
+function isOverdue(item: any): boolean {
+  return (
+    !!item.dueDate &&
+    Number(item.amount) > 0 &&
+    item.status !== "PAID" &&
+    isPast(new Date(item.dueDate))
+  );
+}
 
 export default function Borrowings() {
   const { data: borrowings, isLoading } = useBorrowings();
+  const { data: customers } = useCustomers();
   const updateStatus = useUpdateBorrowingStatus();
   const updateAmount = useUpdateBorrowingAmount();
   const recordRepayment = useRecordRepayment();
@@ -44,13 +58,56 @@ export default function Borrowings() {
   const [editingBorrowingId, setEditingBorrowingId] = useState<number | null>(null);
   const [editAmount, setEditAmount] = useState<string>("");
 
+  const { data: paymentSettings } = useQuery<any>({
+    queryKey: ["/api/payment-settings"],
+    queryFn: async () => {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch("/api/payment-settings", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
+
+  const handleDownloadStatement = (group: { customerId: number; customerName: string; borrowings: any[] }) => {
+    const phone = customers?.find((c) => c.id === group.customerId)?.phone;
+    openCustomerStatement({
+      customerName: group.customerName,
+      customerPhone: phone,
+      entries: group.borrowings,
+      paymentSettings,
+      toast,
+    });
+  };
+
+  const handleSendReminder = (group: { customerId: number; customerName: string; total: number; borrowings: any[] }) => {
+    const phone = customers?.find((c) => c.id === group.customerId)?.phone;
+    const earliestDue = group.borrowings
+      .filter((b) => Number(b.amount) > 0 && b.dueDate)
+      .map((b) => b.dueDate)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+    const ok = sendWhatsAppReminder(phone, {
+      customerName: group.customerName,
+      amount: group.total,
+      upiId: paymentSettings?.enableUpi === false ? null : paymentSettings?.ownerUpiId,
+      dueDate: earliestDue,
+    });
+    if (!ok) {
+      toast({
+        title: "No phone number",
+        description: `Add a phone number for ${group.customerName} to send directly. Opened WhatsApp with the message ready to copy.`,
+      });
+    }
+  };
+
   const filteredBorrowings = borrowings?.filter(b => 
     b.customerName.toLowerCase().includes(search.toLowerCase()) ||
     b.amount.includes(search)
   ).sort((a, b) => {
-    // Sort: Overdue first, then Pending, then Paid
-    const statusOrder = { OVERDUE: 0, PENDING: 1, PAID: 2 };
-    const statusDiff = statusOrder[a.status as keyof typeof statusOrder] - statusOrder[b.status as keyof typeof statusOrder];
+    // Sort: actually-overdue first, then pending, then paid
+    const rank = (x: typeof a) => (isOverdue(x) ? 0 : x.status === "PAID" ? 2 : 1);
+    const statusDiff = rank(a) - rank(b);
     if (statusDiff !== 0) return statusDiff;
     return new Date(b.date || "").getTime() - new Date(a.date || "").getTime();
   }) || [];
@@ -174,7 +231,18 @@ export default function Borrowings() {
               >
                 <div className="flex items-center gap-4 flex-1 text-left">
                   <div>
-                    <h3 className="font-bold text-lg text-slate-900">{group.customerName}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-lg text-slate-900">{group.customerName}</h3>
+                      {(() => {
+                        const overdueCount = group.borrowings.filter(isOverdue).length;
+                        return overdueCount > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                            <AlertTriangle className="h-3 w-3" />
+                            {overdueCount} overdue
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       {group.borrowings.length} {group.borrowings.length === 1 ? 'entry' : 'entries'}
                     </p>
@@ -186,6 +254,30 @@ export default function Borrowings() {
                     <p className="text-xs text-muted-foreground">Total Udhaar</p>
                     <p className="text-2xl font-bold text-red-600">₹{group.total.toLocaleString()}</p>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadStatement(group);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                    title="Download account statement (PDF)"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Statement
+                  </button>
+                  {group.total > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSendReminder(group);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                      title="Send WhatsApp payment reminder"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Remind
+                    </button>
+                  )}
                   {group.total > 0 && (
                     <CustomerCollectButton
                       group={group}
@@ -269,6 +361,8 @@ function BorrowingItem({
   updateAmount: any;
 }) {
   const isPayment = Number(item.amount) < 0;
+  const overdue = isOverdue(item);
+  const displayStatus = overdue ? "OVERDUE" : item.status;
 
   if (isPayment) {
     return (
@@ -296,7 +390,10 @@ function BorrowingItem({
   }
 
   return (
-    <div className="px-6 py-4 flex items-center justify-between group hover:bg-slate-50/50 transition-colors">
+    <div className={cn(
+      "px-6 py-4 flex items-center justify-between group transition-colors",
+      overdue ? "bg-red-50/50 hover:bg-red-50 border-l-4 border-red-500" : "hover:bg-slate-50/50"
+    )}>
       <div className="flex items-center gap-4 flex-1">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-1">
@@ -305,14 +402,14 @@ function BorrowingItem({
             </p>
             <span className={cn(
               "px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1",
-              item.status === "PAID" && "bg-emerald-100 text-emerald-700",
-              item.status === "PENDING" && "bg-amber-100 text-amber-700",
-              item.status === "OVERDUE" && "bg-red-100 text-red-700"
+              displayStatus === "PAID" && "bg-emerald-100 text-emerald-700",
+              displayStatus === "PENDING" && "bg-amber-100 text-amber-700",
+              displayStatus === "OVERDUE" && "bg-red-100 text-red-700"
             )}>
-              {item.status === "PAID" && <CheckCircle2 className="h-3 w-3" />}
-              {item.status === "PENDING" && <Clock className="h-3 w-3" />}
-              {item.status === "OVERDUE" && <AlertTriangle className="h-3 w-3" />}
-              {item.status}
+              {displayStatus === "PAID" && <CheckCircle2 className="h-3 w-3" />}
+              {displayStatus === "PENDING" && <Clock className="h-3 w-3" />}
+              {displayStatus === "OVERDUE" && <AlertTriangle className="h-3 w-3" />}
+              {displayStatus}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -353,14 +450,18 @@ function BorrowingItem({
               <p className="text-sm font-bold text-slate-900">
                 ₹{Number(item.amount).toLocaleString()}
               </p>
-              {item.dueDate && (
-                <p className={cn(
-                  "text-xs",
-                  isPast(new Date(item.dueDate)) && item.status !== "PAID" ? "text-red-600" : "text-slate-500"
-                )}>
-                  Due: {format(new Date(item.dueDate), "MMM dd")}
-                </p>
-              )}
+              {item.dueDate && item.status !== "PAID" && (() => {
+                const days = differenceInCalendarDays(new Date(item.dueDate), new Date());
+                return (
+                  <p className={cn("text-xs font-medium", overdue ? "text-red-600" : "text-slate-500")}>
+                    {overdue
+                      ? `Overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`
+                      : days === 0
+                        ? "Due today"
+                        : `Due in ${days} day${days === 1 ? "" : "s"}`}
+                  </p>
+                );
+              })()}
             </div>
 
             {item.status !== "PAID" && (
