@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useCreateProduct, useProducts } from "@/hooks/use-shop";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, ScanLine } from "lucide-react";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { insertProductSchema, type InsertProduct } from "@shared/schema";
@@ -19,6 +20,7 @@ export function ProductManager() {
   const createProduct = useCreateProduct();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
 
   const form = useForm<InsertProduct>({
     resolver: zodResolver(insertProductSchema),
@@ -28,6 +30,7 @@ export function ProductManager() {
       quantity: 0,
       unit: "",
       category: "",
+      barcode: "",
       description: "",
       isActive: true,
     }
@@ -150,6 +153,29 @@ export function ProductManager() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Barcode
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Scan or type barcode"
+                    {...form.register("barcode")}
+                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setScanOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
+                    title="Scan barcode with camera"
+                  >
+                    <ScanLine className="h-4 w-4" />
+                    Scan
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Description
                 </label>
                 <textarea
@@ -208,6 +234,19 @@ export function ProductManager() {
         <div className="text-center py-8 text-slate-500">
           <p>No products added yet. Add your first product to get started!</p>
         </div>
+      )}
+
+      {scanOpen && (
+        <BarcodeScanner
+          title="Scan Product Barcode"
+          subtitle="The scanned code will be saved with this product"
+          onClose={() => setScanOpen(false)}
+          onDetect={(code) => {
+            form.setValue("barcode", code);
+            setScanOpen(false);
+            toast({ title: "Barcode captured", description: code });
+          }}
+        />
       )}
     </div>
   );

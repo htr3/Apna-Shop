@@ -289,6 +289,7 @@ public class ShopService {
                 .quantity(intValue(body.get("quantity"), 0))
                 .unit(stringValue(body.get("unit")))
                 .category(stringValue(body.get("category")))
+                .barcode(stringValue(body.get("barcode")))
                 .description(stringValue(body.get("description")))
                 .isActive(boolValue(body.get("isActive"), true))
                 .build();
@@ -317,6 +318,9 @@ public class ShopService {
         }
         if (body.containsKey("category")) {
             existing.setCategory(stringValue(body.get("category")));
+        }
+        if (body.containsKey("barcode")) {
+            existing.setBarcode(stringValue(body.get("barcode")));
         }
         if (body.containsKey("description")) {
             existing.setDescription(stringValue(body.get("description")));

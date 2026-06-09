@@ -15,8 +15,10 @@ import {
   Edit2,
   Trash2,
   Receipt,
-  QrCode
+  QrCode,
+  ScanLine
 } from "lucide-react";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 import {
   Dialog,
   DialogContent,
@@ -467,6 +469,34 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
   const [quantity, setQuantity] = useState("1");
   const [productSearch, setProductSearch] = useState("");
   const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+
+  // Resolve a scanned barcode to a product and add it to the sale (or bump its qty).
+  const handleScanDetect = (code: string) => {
+    setScanOpen(false);
+    const scanned = code.trim();
+    const match = (products || []).find((p) => (p.barcode || "").trim() === scanned);
+    if (!match) {
+      setProductSearch(scanned);
+      setShowProductDropdown(true);
+      toast({
+        title: "No product found",
+        description: `No product matches barcode ${scanned}. Search by name or add it as "Other".`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setItems((prev) => {
+      const idx = prev.findIndex((it) => it.productId === match.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], quantity: copy[idx].quantity + 1 };
+        return copy;
+      }
+      return [...prev, { productId: match.id, productName: match.name, quantity: 1, price: Number(match.price) }];
+    });
+    toast({ title: "Added to sale", description: `${match.name} (₹${Number(match.price).toFixed(2)})` });
+  };
 
   const productMatches = (products || []).filter(p =>
     p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
@@ -705,7 +735,18 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
 
       {/* Products Section */}
       <div className="space-y-3 border-t border-slate-200 pt-4">
-        <h3 className="font-medium text-slate-900">📦 Products Sold</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium text-slate-900">📦 Products Sold</h3>
+          <button
+            type="button"
+            onClick={() => setScanOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
+            title="Scan a product barcode with your camera"
+          >
+            <ScanLine className="h-4 w-4" />
+            Scan
+          </button>
+        </div>
 
         {items.length > 0 && (
           <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -1035,6 +1076,15 @@ function AddSaleForm({ onSuccess }: { onSuccess: () => void }) {
           {createSale.isPending ? "Recording..." : "Record Sale"}
         </button>
       </div>
+
+      {scanOpen && (
+        <BarcodeScanner
+          title="Scan to Sell"
+          subtitle="Scan a product barcode to add it to this sale"
+          onClose={() => setScanOpen(false)}
+          onDetect={handleScanDetect}
+        />
+      )}
     </form>
   );
 }
