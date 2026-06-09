@@ -12,6 +12,8 @@ public interface BorrowingRepository extends JpaRepository<Borrowing, Integer> {
 
     List<Borrowing> findByMobileNo(String mobileNo);
 
+    List<Borrowing> findByCustomerId(Integer customerId);
+
     Optional<Borrowing> findFirstByCustomerIdAndNotesContaining(Integer customerId, String notesFragment);
 
     List<Borrowing> findByMobileNoAndDateBetweenAndStatus(

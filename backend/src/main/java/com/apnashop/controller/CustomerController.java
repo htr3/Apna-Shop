@@ -4,6 +4,7 @@ import com.apnashop.entity.Customer;
 import com.apnashop.exception.ApiException;
 import com.apnashop.security.AuthUser;
 import com.apnashop.security.AuthUtil;
+import com.apnashop.security.ShareTokenService;
 import com.apnashop.service.ShopService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import java.util.Map;
 public class CustomerController {
 
     private final ShopService shopService;
+    private final ShareTokenService shareTokenService;
 
     @GetMapping("/api/customers")
     public List<Customer> list(HttpServletRequest request) {
@@ -37,5 +39,16 @@ public class CustomerController {
     public Customer get(@PathVariable Integer id) {
         return shopService.getCustomer(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Customer not found"));
+    }
+
+    @GetMapping("/api/customers/{id}/share-link")
+    public Map<String, String> shareLink(@PathVariable Integer id, HttpServletRequest request) {
+        AuthUser user = AuthUtil.getAuthUser(request);
+        Customer customer = shopService.getCustomer(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Customer not found"));
+        if (!customer.getMobileNo().equals(user.mobileNo())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Access denied");
+        }
+        return Map.of("token", shareTokenService.createToken(id));
     }
 }

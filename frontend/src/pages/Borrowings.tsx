@@ -33,7 +33,7 @@ import { useQuery } from "@tanstack/react-query";
 import { openUpiQrWindow } from "@/lib/upi";
 import { openCustomerStatement } from "@/lib/statement";
 import { sendWhatsAppReminder } from "@/lib/reminder";
-import { QrCode, MessageCircle } from "lucide-react";
+import { QrCode, MessageCircle, Share2 } from "lucide-react";
 
 // An entry is overdue when it still owes money and its due date has passed.
 function isOverdue(item: any): boolean {
@@ -79,6 +79,25 @@ export default function Borrowings() {
       paymentSettings,
       toast,
     });
+  };
+
+  const handleShareLink = async (group: { customerId: number; customerName: string }) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`/api/customers/${group.customerId}/share-link`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Failed to create link");
+      const { token: shareToken } = await res.json();
+      const url = `${window.location.origin}/ledger/${shareToken}`;
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: "Link copied!",
+        description: `Share this link with ${group.customerName} to view their balance & pay.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Could not create link", variant: "destructive" });
+    }
   };
 
   const handleSendReminder = (group: { customerId: number; customerName: string; total: number; borrowings: any[] }) => {
@@ -264,6 +283,17 @@ export default function Borrowings() {
                   >
                     <FileText className="h-4 w-4" />
                     Statement
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShareLink(group);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                    title="Copy a shareable ledger link for this customer"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    Share
                   </button>
                   {group.total > 0 && (
                     <button

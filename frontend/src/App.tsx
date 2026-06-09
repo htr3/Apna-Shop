@@ -16,6 +16,7 @@ import Products from "@/pages/Products";
 import PaymentSettings from "@/pages/PaymentSettings";
 import { I18nProvider } from "@/i18n/I18nContext";
 import Signup from "@/pages/Signup";
+import CustomerLedger from "@/pages/CustomerLedger";
 
 // Auth Guard Wrapper
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -36,6 +37,7 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 function Router() {
   return (
     <Switch>
+      <Route path="/ledger/:token" component={CustomerLedger} />
       <Route path="/signup" component={Signup} />
       <Route path="/login" component={Login} />
       <Route path="/login/otp" component={OtpLogin} />
