@@ -7,7 +7,8 @@ import {
   ShoppingBag,
   Store,
   Settings,
-  Package
+  Package,
+  BarChart3
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/products", label: "Products", icon: Package },
     { href: "/customers", label: "Customers", icon: Users },
     { href: "/borrowings", label: "Udhaar", icon: CreditCard },
+    { href: "/insights", label: "Insights", icon: BarChart3 },
     ...(userRole === "OWNER" ? [{ href: "/payment-settings", label: "Payment Settings", icon: Settings }] : []),
   ];
 

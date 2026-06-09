@@ -17,6 +17,7 @@ import PaymentSettings from "@/pages/PaymentSettings";
 import { I18nProvider } from "@/i18n/I18nContext";
 import Signup from "@/pages/Signup";
 import CustomerLedger from "@/pages/CustomerLedger";
+import Insights from "@/pages/Insights";
 
 // Auth Guard Wrapper
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -50,6 +51,9 @@ function Router() {
       </Route>
       <Route path="/borrowings">
         <ProtectedRoute component={Borrowings} />
+      </Route>
+      <Route path="/insights">
+        <ProtectedRoute component={Insights} />
       </Route>
       <Route path="/sales">
         <ProtectedRoute component={Sales} />

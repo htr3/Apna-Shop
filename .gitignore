@@ -10,6 +10,9 @@ node_modules/
 /dist
 /build
 
+# TypeScript incremental build info
+*.tsbuildinfo
+
 # Java / Maven build output
 target/
 *.jar
