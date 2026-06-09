@@ -111,7 +111,6 @@ export const products = pgTable("products", {
   quantity: integer("quantity").default(0), // Stock quantity
   unit: text("unit"), // e.g., "Piece", "Kg", "Liter", "Box"
   category: text("category"), // Optional: Snacks, Beverages, etc.
-  barcode: text("barcode"), // Scanned barcode/QR for quick lookup at sale time
   description: text("description"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -308,7 +307,6 @@ export const insertProductSchema = z.object({
   name: z.string().min(1),
   price: z.string(),
   category: z.string().optional(),
-  barcode: z.string().optional(),
   description: z.string().optional(),
   quantity: z.number().int().min(0).optional(),
   unit: z.string().min(1).optional(),

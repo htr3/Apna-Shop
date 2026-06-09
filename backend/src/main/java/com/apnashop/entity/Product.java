@@ -38,8 +38,6 @@ public class Product {
 
     private String category;
 
-    private String barcode;
-
     private String description;
 
     @Column(name = "is_active")

@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useCreateProduct, useProducts, useUpdateProduct, useDeleteProduct } from "@/hooks/use-shop";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Loader2, Package, Edit2, Trash2, Search, X, ScanLine } from "lucide-react";
+import { Plus, Loader2, Package, Edit2, Trash2, Search, X } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { insertProductSchema, type InsertProduct } from "@shared/schema";
 import { Layout } from "@/components/Layout";
-import { BarcodeScanner } from "@/components/BarcodeScanner";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +26,6 @@ export default function Products() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [scanOpen, setScanOpen] = useState(false);
 
   const form = useForm<InsertProduct>({
     resolver: zodResolver(insertProductSchema),
@@ -37,7 +35,6 @@ export default function Products() {
       quantity: 0,
       unit: "",
       category: "",
-      barcode: "",
       description: "",
       isActive: true,
     }
@@ -89,7 +86,6 @@ export default function Products() {
       quantity: product.quantity || 0,
       unit: product.unit || "",
       category: product.category || "",
-      barcode: product.barcode || "",
       description: product.description || "",
     });
     setEditingId(product.id);
@@ -223,29 +219,6 @@ export default function Products() {
                   {...form.register("category")}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Barcode
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Scan or type barcode"
-                    {...form.register("barcode")}
-                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setScanOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
-                    title="Scan barcode with camera"
-                  >
-                    <ScanLine className="h-4 w-4" />
-                    Scan
-                  </button>
-                </div>
               </div>
 
               <div>
@@ -444,19 +417,6 @@ export default function Products() {
             </button>
           )}
         </div>
-      )}
-
-      {scanOpen && (
-        <BarcodeScanner
-          title="Scan Product Barcode"
-          subtitle="The scanned code will be saved with this product"
-          onClose={() => setScanOpen(false)}
-          onDetect={(code) => {
-            form.setValue("barcode", code);
-            setScanOpen(false);
-            toast({ title: "Barcode captured", description: code });
-          }}
-        />
       )}
     </Layout>
   );
